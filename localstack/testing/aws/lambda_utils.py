@@ -3,8 +3,7 @@ import os
 from typing import Literal
 
 from localstack.utils.common import to_str
-from localstack.utils.generic.wait_utils import ShortCircuitWaitException
-from localstack.utils.sync import retry
+from localstack.utils.sync import ShortCircuitWaitException, retry
 from localstack.utils.testutil import get_lambda_log_events
 
 
@@ -121,4 +120,11 @@ def is_old_provider():
     return (
         os.environ.get("TEST_TARGET") != "AWS_CLOUD"
         and os.environ.get("PROVIDER_OVERRIDE_LAMBDA") != "asf"
+    )
+
+
+def is_new_provider():
+    return (
+        os.environ.get("TEST_TARGET") != "AWS_CLOUD"
+        and os.environ.get("PROVIDER_OVERRIDE_LAMBDA") == "asf"
     )

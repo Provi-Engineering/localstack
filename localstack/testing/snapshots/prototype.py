@@ -112,7 +112,8 @@ class SnapshotSession:
                     }
                     full_state[self.scope_key] = recorded
                     state_to_dump = json.dumps(full_state, indent=2)
-                    fd.write(state_to_dump)
+                    # add line ending to be compatible with pre-commit-hooks (end-of-file-fixer)
+                    fd.write(f"{state_to_dump}\n")
                 except Exception as e:
                     SNAPSHOT_LOGGER.exception(e)
 
@@ -231,13 +232,13 @@ class SnapshotSession:
     def _transform(self, tmp: dict) -> dict:
         """build a persistable state definition that can later be compared against"""
         self._transform_dict_to_parseable_values(tmp)
-        if not self.update:
-            self._remove_skip_verification_paths(tmp)
 
         ctx = TransformContext()
-
         for transformer, _ in sorted(self.transformers, key=lambda p: p[1]):
             tmp = transformer.transform(tmp, ctx=ctx)
+
+        if not self.update:
+            self._remove_skip_verification_paths(tmp)
 
         tmp = json.dumps(tmp, default=str)
         for sr in ctx.serialized_replacements:

@@ -10,7 +10,6 @@ from localstack import config
 from localstack.aws.accounts import get_aws_account_id
 from localstack.config import EDGE_BIND_HOST, LOCALSTACK_HOSTNAME
 from localstack.constants import OPENSEARCH_DEFAULT_VERSION, OPENSEARCH_PLUGIN_LIST
-from localstack.services.install import install_opensearch
 from localstack.services.opensearch.cluster import EdgeProxiedOpensearchCluster
 from localstack.services.opensearch.cluster_manager import (
     CustomBackendManager,
@@ -20,6 +19,7 @@ from localstack.services.opensearch.cluster_manager import (
     SingletonClusterManager,
     create_cluster_manager,
 )
+from localstack.services.opensearch.packages import opensearch_package
 from localstack.utils.common import call_safe, poll_condition, retry
 from localstack.utils.common import safe_requests as requests
 from localstack.utils.common import short_uid, start_worker_thread
@@ -47,10 +47,10 @@ def install_async():
             if installed.is_set():
                 return
             LOG.info("installing opensearch default version")
-            install_opensearch()
+            opensearch_package.install()
             LOG.info("done installing opensearch default version")
             LOG.info("installing opensearch 1.0")
-            install_opensearch("OpenSearch_1.0")
+            opensearch_package.install(version="OpenSearch_1.0")
             LOG.info("done installing opensearch 1.0")
             installed.set()
 
@@ -93,6 +93,8 @@ class TestOpensearchProvider:
         versions = response["Versions"]
 
         expected_versions = [
+            "OpenSearch_1.3",
+            "OpenSearch_1.2",
             "OpenSearch_1.1",
             "OpenSearch_1.0",
             "Elasticsearch_7.10",
@@ -112,7 +114,6 @@ class TestOpensearchProvider:
             "Elasticsearch_5.5",
             "Elasticsearch_5.3",
             "Elasticsearch_5.1",
-            "Elasticsearch_5.0",
         ]
         # We iterate over the expected versions to avoid breaking the test if new versions are supported
         for expected_version in expected_versions:
@@ -125,24 +126,40 @@ class TestOpensearchProvider:
 
         compatible_versions = response["CompatibleVersions"]
 
-        assert len(compatible_versions) >= 18
+        assert len(compatible_versions) >= 20
         expected_compatible_versions = [
-            {"SourceVersion": "OpenSearch_1.0", "TargetVersions": ["OpenSearch_1.1"]},
+            {
+                "SourceVersion": "OpenSearch_1.0",
+                "TargetVersions": ["OpenSearch_1.1", "OpenSearch_1.2", "OpenSearch_1.3"],
+            },
             {
                 "SourceVersion": "Elasticsearch_7.10",
-                "TargetVersions": ["OpenSearch_1.0", "OpenSearch_1.1"],
+                "TargetVersions": [
+                    "OpenSearch_1.0",
+                    "OpenSearch_1.1",
+                    "OpenSearch_1.2",
+                    "OpenSearch_1.3",
+                ],
             },
             {
                 "SourceVersion": "Elasticsearch_7.9",
-                "TargetVersions": ["Elasticsearch_7.10", "OpenSearch_1.0", "OpenSearch_1.1"],
+                "TargetVersions": [
+                    "Elasticsearch_7.10",
+                    "OpenSearch_1.0",
+                    "OpenSearch_1.1",
+                    "OpenSearch_1.2",
+                    "OpenSearch_1.3",
+                ],
             },
             {
                 "SourceVersion": "Elasticsearch_7.8",
                 "TargetVersions": [
                     "Elasticsearch_7.9",
                     "Elasticsearch_7.10",
-                    "OpenSearch_1.1",
                     "OpenSearch_1.0",
+                    "OpenSearch_1.1",
+                    "OpenSearch_1.2",
+                    "OpenSearch_1.3",
                 ],
             },
             {
@@ -153,6 +170,8 @@ class TestOpensearchProvider:
                     "Elasticsearch_7.10",
                     "OpenSearch_1.0",
                     "OpenSearch_1.1",
+                    "OpenSearch_1.2",
+                    "OpenSearch_1.3",
                 ],
             },
             {
@@ -164,6 +183,8 @@ class TestOpensearchProvider:
                     "Elasticsearch_7.10",
                     "OpenSearch_1.0",
                     "OpenSearch_1.1",
+                    "OpenSearch_1.2",
+                    "OpenSearch_1.3",
                 ],
             },
             {
@@ -176,6 +197,8 @@ class TestOpensearchProvider:
                     "Elasticsearch_7.10",
                     "OpenSearch_1.0",
                     "OpenSearch_1.1",
+                    "OpenSearch_1.2",
+                    "OpenSearch_1.3",
                 ],
             },
             {
@@ -189,6 +212,8 @@ class TestOpensearchProvider:
                     "Elasticsearch_7.10",
                     "OpenSearch_1.0",
                     "OpenSearch_1.1",
+                    "OpenSearch_1.2",
+                    "OpenSearch_1.3",
                 ],
             },
             {"SourceVersion": "Elasticsearch_6.7", "TargetVersions": ["Elasticsearch_6.8"]},
@@ -439,7 +464,8 @@ class TestEdgeProxiedOpensearchCluster:
     def test_route_through_edge(self):
         cluster_id = f"domain-{short_uid()}"
         cluster_url = f"http://localhost:{config.EDGE_PORT}/{cluster_id}"
-        cluster = EdgeProxiedOpensearchCluster(cluster_url)
+        arn = f"arn:aws:es:us-east-1:000000000000:domain/{cluster_id}"
+        cluster = EdgeProxiedOpensearchCluster(cluster_url, arn)
 
         try:
             cluster.start()
@@ -447,7 +473,7 @@ class TestEdgeProxiedOpensearchCluster:
 
             response = requests.get(cluster_url)
             assert response.ok, f"cluster endpoint returned an error: {response.text}"
-            assert response.json()["version"]["number"] == "1.1.0"
+            assert response.json()["version"]["number"] == "1.3.6"
 
             response = requests.get(f"{cluster_url}/_cluster/health")
             assert response.ok, f"cluster health endpoint returned an error: {response.text}"

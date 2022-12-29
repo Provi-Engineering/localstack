@@ -16,6 +16,7 @@ ENV_DEV = "dev"
 # HTTP headers used to forward proxy request URLs
 HEADER_LOCALSTACK_EDGE_URL = "x-localstack-edge"
 HEADER_LOCALSTACK_REQUEST_URL = "x-localstack-request-url"
+# xXx custom localstack authorization header only used in ext
 HEADER_LOCALSTACK_AUTHORIZATION = "x-localstack-authorization"
 HEADER_LOCALSTACK_TARGET = "x-localstack-target"
 HEADER_AMZN_ERROR_TYPE = "X-Amzn-Errortype"
@@ -31,6 +32,9 @@ LOCALHOST_HOSTNAME = "localhost.localstack.cloud"
 # version of the Maven dependency with Java utility code
 LOCALSTACK_MAVEN_VERSION = "0.2.21"
 MAVEN_REPO_URL = "https://repo1.maven.org/maven2"
+
+# URL of localstack's artifacts repository on GitHub
+ARTIFACTS_REPO = "https://github.com/localstack/localstack-artifacts"
 
 # map of default service APIs and ports to be spun up (fetch map from localstack_client)
 DEFAULT_SERVICE_PORTS = localstack_client.config.get_service_ports()
@@ -73,6 +77,7 @@ PATH_USER_REQUEST = "_user_request_"
 
 # name of LocalStack Docker image
 DOCKER_IMAGE_NAME = "localstack/localstack"
+DOCKER_IMAGE_NAME_PRO = "localstack/localstack-pro"
 DOCKER_IMAGE_NAME_FULL = "localstack/localstack-full"
 
 # backdoor API path used to retrieve or update config variables
@@ -127,7 +132,7 @@ ELASTICSEARCH_PLUGIN_LIST = [
 ELASTICSEARCH_DELETE_MODULES = ["ingest-geoip"]
 
 # the version of opensearch which is used by default
-OPENSEARCH_DEFAULT_VERSION = "OpenSearch_1.1"
+OPENSEARCH_DEFAULT_VERSION = "OpenSearch_1.3"
 
 # See https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-plugins.html
 OPENSEARCH_PLUGIN_LIST = [
@@ -139,9 +144,6 @@ ELASTICMQ_JAR_URL = (
 )
 STEPFUNCTIONS_ZIP_URL = "https://s3.amazonaws.com/stepfunctionslocal/StepFunctionsLocal.zip"
 KMS_URL_PATTERN = "https://s3-eu-west-2.amazonaws.com/local-kms/3/local-kms_<arch>.bin"
-
-DYNAMODB_JAR_URL = "https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.zip"
-LIBSQLITE_AARCH64_URL = f"{MAVEN_REPO_URL}/io/github/ganadist/sqlite4java/libsqlite4java-osx-aarch64/1.0.392/libsqlite4java-osx-aarch64-1.0.392.dylib"
 
 # API endpoint for analytics events
 API_ENDPOINT = os.environ.get("API_ENDPOINT") or "https://api.localstack.cloud/v1"
@@ -197,10 +199,19 @@ S3_STATIC_WEBSITE_HOSTNAME = "s3-website.%s" % LOCALHOST_HOSTNAME
 DEFAULT_DEVELOP_PORT = 5678
 
 # Default bucket name of the s3 bucket used for local lambda development
-DEFAULT_BUCKET_MARKER_LOCAL = "__local__"
+# This name should be accepted by all IaC tools, so should respect s3 bucket naming conventions
+DEFAULT_BUCKET_MARKER_LOCAL = "hot-reload"
+LEGACY_DEFAULT_BUCKET_MARKER_LOCAL = "__local__"
 
 # user that starts the opensearch process if the current user is root
 OS_USER_OPENSEARCH = "localstack"
 
 # output string that indicates that the stack is ready
 READY_MARKER_OUTPUT = "Ready."
+
+# Regex for `Credential` field in the Authorization header in AWS signature version v4
+# The format is as follows:
+#   Credential=<access-key-id>/<date>/<region-name>/<service-name>/aws4_request
+# eg.
+#   Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request
+AUTH_CREDENTIAL_REGEX = r"Credential=(?P<access_key_id>[a-zA-Z0-9-_.]{1,})/(?P<date>\d{8})/(?P<region_name>[a-z0-9-]{1,})/(?P<service_name>[a-z0-9]{1,})/"

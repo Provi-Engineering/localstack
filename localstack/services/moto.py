@@ -6,8 +6,8 @@ from functools import lru_cache
 from typing import Callable, Optional, Union
 
 import moto.backends as moto_backends
+from moto.core import BackendDict
 from moto.core.exceptions import RESTError
-from moto.core.utils import BackendDict
 from moto.moto_server.utilities import RegexConverter
 from werkzeug.exceptions import NotFound
 from werkzeug.routing import Map, Rule
@@ -109,6 +109,10 @@ def dispatch_to_moto(context: RequestContext) -> Response:
 
     try:
         status, headers, content = dispatch(request, request.url, request.headers)
+        if isinstance(content, str) and len(content) == 0:
+            # moto often returns an empty string to indicate an empty body.
+            # use None instead to ensure that body-related headers aren't overwritten when creating the response object.
+            content = None
         return Response(content, status, headers)
     except RESTError as e:
         raise CommonServiceException(e.error_type, e.message, status_code=e.code) from e

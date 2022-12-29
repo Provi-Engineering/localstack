@@ -297,6 +297,7 @@ def test_rest_xml_serializer_s3_2_with_botocore():
         "ObjectLockMode": "GOVERNANCE",
         "ObjectLockRetainUntilDate": datetime(2015, 1, 1, 23, 59, 59, tzinfo=tzutc()),
         "ObjectLockLegalHoldStatus": "ON",
+        "StatusCode": 200,
     }
     _botocore_serializer_integration_test("s3", "GetObject", parameters)
 
@@ -1258,6 +1259,7 @@ def test_restxml_header_location():
         "DeleteMarker": True,
         "ContentType": "string",
         "Metadata": {"string": "string"},
+        "StatusCode": 200,
     }
     _botocore_serializer_integration_test("s3", "GetObject", parameters)
 
@@ -1665,6 +1667,7 @@ def test_restxml_streaming_payload(payload):
         "Body": payload,
         "ContentType": "text/xml",
         "Metadata": {},
+        "StatusCode": 200,
     }
     _botocore_serializer_integration_test("s3", "GetObject", parameters)
 
@@ -1695,7 +1698,7 @@ def test_restjson_streaming_payload(payload):
     "service,accept_header,content_type_header,expected_mime_type",
     [
         # Test default S3
-        ("s3", None, None, "text/xml"),
+        ("s3", None, None, "application/xml"),
         # Test default STS
         ("sts", None, None, "text/xml"),
         # Test STS for "any" Accept header

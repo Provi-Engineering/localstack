@@ -23,6 +23,7 @@ from localstack.config import (
 )
 from localstack.http import Response
 
+from ...constants import PATH_USER_REQUEST
 from ..api import RequestContext
 from ..chain import Handler, HandlerChain
 
@@ -108,7 +109,11 @@ def should_enforce_self_managed_service(context: RequestContext) -> bool:
         if not config.DISABLE_CUSTOM_CORS_S3 and service_name == "s3":
             return False
         if not config.DISABLE_CUSTOM_CORS_APIGATEWAY and service_name == "apigateway":
-            return False
+            is_user_request = (
+                PATH_USER_REQUEST in context.request.path or ".execute-api." in context.request.host
+            )
+            if is_user_request:
+                return False
     return True
 
 
@@ -176,22 +181,26 @@ class CorsResponseEnricher(Handler):
             return
 
         request_headers = context.request.headers
-        if ACL_ORIGIN not in headers:
-            headers[ACL_ORIGIN] = (
+        self.add_cors_headers(request_headers, response_headers=headers)
+
+    @staticmethod
+    def add_cors_headers(request_headers: Headers, response_headers: Headers):
+        if ACL_ORIGIN not in response_headers:
+            response_headers[ACL_ORIGIN] = (
                 request_headers["origin"]
                 if request_headers.get("origin") and not config.DISABLE_CORS_CHECKS
                 else "*"
             )
-        if ACL_METHODS not in headers:
-            headers[ACL_METHODS] = ",".join(CORS_ALLOWED_METHODS)
-        if ACL_ALLOW_HEADERS not in headers:
-            requested_headers = headers.get(ACL_REQUEST_HEADERS, "")
+        if ACL_METHODS not in response_headers:
+            response_headers[ACL_METHODS] = ",".join(CORS_ALLOWED_METHODS)
+        if ACL_ALLOW_HEADERS not in response_headers:
+            requested_headers = response_headers.get(ACL_REQUEST_HEADERS, "")
             requested_headers = re.split(r"[,\s]+", requested_headers) + CORS_ALLOWED_HEADERS
-            headers[ACL_ALLOW_HEADERS] = ",".join([h for h in requested_headers if h])
-        if ACL_EXPOSE_HEADERS not in headers:
-            headers[ACL_EXPOSE_HEADERS] = ",".join(CORS_EXPOSE_HEADERS)
+            response_headers[ACL_ALLOW_HEADERS] = ",".join([h for h in requested_headers if h])
+        if ACL_EXPOSE_HEADERS not in response_headers:
+            response_headers[ACL_EXPOSE_HEADERS] = ",".join(CORS_EXPOSE_HEADERS)
         if (
             request_headers.get(ACL_REQUEST_PRIVATE_NETWORK) == "true"
-            and ACL_ALLOW_PRIVATE_NETWORK not in headers
+            and ACL_ALLOW_PRIVATE_NETWORK not in response_headers
         ):
-            headers[ACL_ALLOW_PRIVATE_NETWORK] = "true"
+            response_headers[ACL_ALLOW_PRIVATE_NETWORK] = "true"

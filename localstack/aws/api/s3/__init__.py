@@ -162,6 +162,23 @@ VersionCount = int
 VersionIdMarker = str
 WebsiteRedirectLocation = str
 Years = int
+BucketRegion = str
+BucketContentType = str
+IfCondition = str
+RestoreObjectOutputStatusCode = int
+ArgumentName = str
+ArgumentValue = str
+AWSAccessKeyId = str
+HostId = str
+HeadersNotSigned = str
+SignatureProvided = str
+StringToSign = str
+StringToSignBytes = str
+CanonicalRequest = str
+CanonicalRequestBytes = str
+X_Amz_Expires = int
+HttpMethod = str
+ResourceType = str
 
 
 class AnalyticsS3ExportFileFormat(str):
@@ -183,6 +200,7 @@ class BucketCannedACL(str):
     public_read = "public-read"
     public_read_write = "public-read-write"
     authenticated_read = "authenticated-read"
+    log_delivery_write = "log-delivery-write"
 
 
 class BucketLocationConstraint(str):
@@ -194,6 +212,7 @@ class BucketLocationConstraint(str):
     ap_south_1 = "ap-south-1"
     ap_southeast_1 = "ap-southeast-1"
     ap_southeast_2 = "ap-southeast-2"
+    ap_southeast_3 = "ap-southeast-3"
     ca_central_1 = "ca-central-1"
     cn_north_1 = "cn-north-1"
     cn_northwest_1 = "cn-northwest-1"
@@ -556,6 +575,7 @@ class BucketAlreadyOwnedByYou(ServiceException):
     code: str = "BucketAlreadyOwnedByYou"
     sender_fault: bool = False
     status_code: int = 400
+    BucketName: Optional[BucketName]
 
 
 class InvalidObjectState(ServiceException):
@@ -576,13 +596,15 @@ class NoSuchBucket(ServiceException):
 class NoSuchKey(ServiceException):
     code: str = "NoSuchKey"
     sender_fault: bool = False
-    status_code: int = 400
+    status_code: int = 404
+    Key: Optional[ObjectKey]
 
 
 class NoSuchUpload(ServiceException):
     code: str = "NoSuchUpload"
     sender_fault: bool = False
     status_code: int = 400
+    UploadId: Optional[MultipartUploadId]
 
 
 class ObjectAlreadyInActiveTierError(ServiceException):
@@ -595,6 +617,119 @@ class ObjectNotInActiveTierError(ServiceException):
     code: str = "ObjectNotInActiveTierError"
     sender_fault: bool = False
     status_code: int = 400
+
+
+class NoSuchLifecycleConfiguration(ServiceException):
+    code: str = "NoSuchLifecycleConfiguration"
+    sender_fault: bool = False
+    status_code: int = 404
+    BucketName: Optional[BucketName]
+
+
+class InvalidBucketName(ServiceException):
+    code: str = "InvalidBucketName"
+    sender_fault: bool = False
+    status_code: int = 400
+    BucketName: Optional[BucketName]
+
+
+class PreconditionFailed(ServiceException):
+    code: str = "PreconditionFailed"
+    sender_fault: bool = False
+    status_code: int = 412
+    Condition: Optional[IfCondition]
+
+
+ObjectSize = int
+
+
+class InvalidRange(ServiceException):
+    code: str = "InvalidRange"
+    sender_fault: bool = False
+    status_code: int = 416
+    ActualObjectSize: Optional[ObjectSize]
+    RangeRequested: Optional[ContentRange]
+
+
+class InvalidArgument(ServiceException):
+    code: str = "InvalidArgument"
+    sender_fault: bool = False
+    status_code: int = 400
+    ArgumentName: Optional[ArgumentName]
+    ArgumentValue: Optional[ArgumentValue]
+    HostId: Optional[HostId]
+
+
+class SignatureDoesNotMatch(ServiceException):
+    code: str = "SignatureDoesNotMatch"
+    sender_fault: bool = False
+    status_code: int = 403
+    AWSAccessKeyId: Optional[AWSAccessKeyId]
+    CanonicalRequest: Optional[CanonicalRequest]
+    CanonicalRequestBytes: Optional[CanonicalRequestBytes]
+    HostId: Optional[HostId]
+    SignatureProvided: Optional[SignatureProvided]
+    StringToSign: Optional[StringToSign]
+    StringToSignBytes: Optional[StringToSignBytes]
+
+
+ServerTime = datetime
+Expires = datetime
+
+
+class AccessDenied(ServiceException):
+    code: str = "AccessDenied"
+    sender_fault: bool = False
+    status_code: int = 403
+    Expires: Optional[Expires]
+    ServerTime: Optional[ServerTime]
+    X_Amz_Expires: Optional[X_Amz_Expires]
+    HostId: Optional[HostId]
+    HeadersNotSigned: Optional[HeadersNotSigned]
+
+
+class AuthorizationQueryParametersError(ServiceException):
+    code: str = "AuthorizationQueryParametersError"
+    sender_fault: bool = False
+    status_code: int = 400
+    HostId: Optional[HostId]
+
+
+class NoSuchWebsiteConfiguration(ServiceException):
+    code: str = "NoSuchWebsiteConfiguration"
+    sender_fault: bool = False
+    status_code: int = 404
+    BucketName: Optional[BucketName]
+
+
+class ReplicationConfigurationNotFoundError(ServiceException):
+    code: str = "ReplicationConfigurationNotFoundError"
+    sender_fault: bool = False
+    status_code: int = 404
+    BucketName: Optional[BucketName]
+
+
+class BadRequest(ServiceException):
+    code: str = "BadRequest"
+    sender_fault: bool = False
+    status_code: int = 400
+    HostId: Optional[HostId]
+
+
+class AccessForbidden(ServiceException):
+    code: str = "AccessForbidden"
+    sender_fault: bool = False
+    status_code: int = 403
+    HostId: Optional[HostId]
+    Method: Optional[HttpMethod]
+    ResourceType: Optional[ResourceType]
+
+
+class NoSuchCORSConfiguration(ServiceException):
+    code: str = "NoSuchCORSConfiguration"
+    sender_fault: bool = False
+    status_code: int = 404
+    BucketName: Optional[BucketName]
 
 
 AbortDate = datetime
@@ -950,7 +1085,6 @@ class CopyObjectOutput(TypedDict, total=False):
 
 ObjectLockRetainUntilDate = datetime
 Metadata = Dict[MetadataKey, MetadataValue]
-Expires = datetime
 CopySourceIfUnmodifiedSince = datetime
 CopySourceIfModifiedSince = datetime
 
@@ -1207,32 +1341,6 @@ class DeleteObjectTaggingRequest(ServiceRequest):
     ExpectedBucketOwner: Optional[AccountId]
 
 
-class Error(TypedDict, total=False):
-    Key: Optional[ObjectKey]
-    VersionId: Optional[ObjectVersionId]
-    Code: Optional[Code]
-    Message: Optional[Message]
-
-
-Errors = List[Error]
-
-
-class DeletedObject(TypedDict, total=False):
-    Key: Optional[ObjectKey]
-    VersionId: Optional[ObjectVersionId]
-    DeleteMarker: Optional[DeleteMarker]
-    DeleteMarkerVersionId: Optional[DeleteMarkerVersionId]
-
-
-DeletedObjects = List[DeletedObject]
-
-
-class DeleteObjectsOutput(TypedDict, total=False):
-    Deleted: Optional[DeletedObjects]
-    RequestCharged: Optional[RequestCharged]
-    Errors: Optional[Errors]
-
-
 class DeleteObjectsRequest(ServiceRequest):
     Bucket: BucketName
     Delete: Delete
@@ -1246,6 +1354,16 @@ class DeleteObjectsRequest(ServiceRequest):
 class DeletePublicAccessBlockRequest(ServiceRequest):
     Bucket: BucketName
     ExpectedBucketOwner: Optional[AccountId]
+
+
+class DeletedObject(TypedDict, total=False):
+    Key: Optional[ObjectKey]
+    VersionId: Optional[ObjectVersionId]
+    DeleteMarker: Optional[DeleteMarker]
+    DeleteMarkerVersionId: Optional[DeleteMarkerVersionId]
+
+
+DeletedObjects = List[DeletedObject]
 
 
 class ReplicationTimeValue(TypedDict, total=False):
@@ -1289,8 +1407,18 @@ class EndEvent(TypedDict, total=False):
     pass
 
 
+class Error(TypedDict, total=False):
+    Key: Optional[ObjectKey]
+    VersionId: Optional[ObjectVersionId]
+    Code: Optional[Code]
+    Message: Optional[Message]
+
+
 class ErrorDocument(TypedDict, total=False):
     Key: ObjectKey
+
+
+Errors = List[Error]
 
 
 class EventBridgeConfiguration(TypedDict, total=False):
@@ -1721,9 +1849,6 @@ class GetObjectAclRequest(ServiceRequest):
     ExpectedBucketOwner: Optional[AccountId]
 
 
-ObjectSize = int
-
-
 class ObjectPart(TypedDict, total=False):
     PartNumber: Optional[PartNumber]
     Size: Optional[Size]
@@ -1845,6 +1970,7 @@ class GetObjectOutput(TypedDict, total=False):
     ObjectLockMode: Optional[ObjectLockMode]
     ObjectLockRetainUntilDate: Optional[ObjectLockRetainUntilDate]
     ObjectLockLegalHoldStatus: Optional[ObjectLockLegalHoldStatus]
+    StatusCode: Optional[GetObjectResponseStatusCode]
 
 
 ResponseExpires = datetime
@@ -2215,6 +2341,7 @@ class ListObjectsOutput(TypedDict, total=False):
     MaxKeys: Optional[MaxKeys]
     CommonPrefixes: Optional[CommonPrefixList]
     EncodingType: Optional[EncodingType]
+    BucketRegion: Optional[BucketRegion]
 
 
 class ListObjectsRequest(ServiceRequest):
@@ -2241,6 +2368,7 @@ class ListObjectsV2Output(TypedDict, total=False):
     ContinuationToken: Optional[Token]
     NextContinuationToken: Optional[NextToken]
     StartAfter: Optional[StartAfter]
+    BucketRegion: Optional[BucketRegion]
 
 
 class ListObjectsV2Request(ServiceRequest):
@@ -2723,6 +2851,7 @@ class RequestProgress(TypedDict, total=False):
 class RestoreObjectOutput(TypedDict, total=False):
     RequestCharged: Optional[RequestCharged]
     RestoreOutputPath: Optional[RestoreOutputPath]
+    StatusCode: Optional[RestoreObjectOutputStatusCode]
 
 
 class SelectParameters(TypedDict, total=False):
@@ -2905,6 +3034,45 @@ class WriteGetObjectResponseRequest(ServiceRequest):
     TagCount: Optional[TagCount]
     VersionId: Optional[ObjectVersionId]
     BucketKeyEnabled: Optional[BucketKeyEnabled]
+
+
+class HeadBucketOutput(TypedDict, total=False):
+    BucketRegion: Optional[BucketRegion]
+    BucketContentType: Optional[BucketContentType]
+
+
+class DeleteResult(TypedDict, total=False):
+    Deleted: Optional[DeletedObjects]
+    RequestCharged: Optional[RequestCharged]
+    Errors: Optional[Errors]
+
+
+class PostObjectRequest(ServiceRequest):
+    Body: Optional[IO[Body]]
+    Bucket: BucketName
+
+
+class PostResponse(TypedDict, total=False):
+    StatusCode: Optional[GetObjectResponseStatusCode]
+    Location: Optional[Location]
+    LocationHeader: Optional[Location]
+    Bucket: Optional[BucketName]
+    Key: Optional[ObjectKey]
+    Expiration: Optional[Expiration]
+    ETag: Optional[ETag]
+    ETagHeader: Optional[ETag]
+    ChecksumCRC32: Optional[ChecksumCRC32]
+    ChecksumCRC32C: Optional[ChecksumCRC32C]
+    ChecksumSHA1: Optional[ChecksumSHA1]
+    ChecksumSHA256: Optional[ChecksumSHA256]
+    ServerSideEncryption: Optional[ServerSideEncryption]
+    VersionId: Optional[ObjectVersionId]
+    SSECustomerAlgorithm: Optional[SSECustomerAlgorithm]
+    SSECustomerKeyMD5: Optional[SSECustomerKeyMD5]
+    SSEKMSKeyId: Optional[SSEKMSKeyId]
+    SSEKMSEncryptionContext: Optional[SSEKMSEncryptionContext]
+    BucketKeyEnabled: Optional[BucketKeyEnabled]
+    RequestCharged: Optional[RequestCharged]
 
 
 class S3Api:
@@ -3172,7 +3340,7 @@ class S3Api:
         bypass_governance_retention: BypassGovernanceRetention = None,
         expected_bucket_owner: AccountId = None,
         checksum_algorithm: ChecksumAlgorithm = None,
-    ) -> DeleteObjectsOutput:
+    ) -> DeleteResult:
         raise NotImplementedError
 
     @handler("DeletePublicAccessBlock")
@@ -3445,7 +3613,7 @@ class S3Api:
     @handler("HeadBucket")
     def head_bucket(
         self, context: RequestContext, bucket: BucketName, expected_bucket_owner: AccountId = None
-    ) -> None:
+    ) -> HeadBucketOutput:
         raise NotImplementedError
 
     @handler("HeadObject")
@@ -4097,4 +4265,10 @@ class S3Api:
         version_id: ObjectVersionId = None,
         bucket_key_enabled: BucketKeyEnabled = None,
     ) -> None:
+        raise NotImplementedError
+
+    @handler("PostObject")
+    def post_object(
+        self, context: RequestContext, bucket: BucketName, body: IO[Body] = None
+    ) -> PostResponse:
         raise NotImplementedError

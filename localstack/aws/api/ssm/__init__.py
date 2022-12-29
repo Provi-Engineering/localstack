@@ -16,6 +16,7 @@ ActivationDescription = str
 ActivationId = str
 AgentErrorCode = str
 AggregatorSchemaOnly = bool
+AlarmName = str
 AllowedPattern = str
 ApplyOnlyAtCronInterval = bool
 ApproveAfterDays = int
@@ -189,6 +190,8 @@ OpsEntityItemCaptureTime = str
 OpsEntityItemKey = str
 OpsFilterKey = str
 OpsFilterValue = str
+OpsItemAccountId = str
+OpsItemArn = str
 OpsItemCategory = str
 OpsItemDataKey = str
 OpsItemDataValueString = str
@@ -274,6 +277,9 @@ PatchTitle = str
 PatchUnreportedNotApplicableCount = int
 PatchVendor = str
 PatchVersion = str
+Policy = str
+PolicyHash = str
+PolicyId = str
 Product = str
 PutInventoryMessage = str
 Region = str
@@ -282,6 +288,7 @@ RegistrationMetadataKey = str
 RegistrationMetadataValue = str
 RegistrationsCount = int
 RemainingCount = int
+ResourceArnString = str
 ResourceCount = int
 ResourceCountByStatus = str
 ResourceDataSyncAWSKMSKeyARN = str
@@ -299,6 +306,7 @@ ResourceDataSyncSourceType = str
 ResourceDataSyncState = str
 ResourceDataSyncType = str
 ResourceId = str
+ResourcePolicyMaxResults = int
 ResponseCode = int
 Reviewer = str
 S3BucketName = str
@@ -598,11 +606,18 @@ class DocumentType(str):
     Automation_ChangeTemplate = "Automation.ChangeTemplate"
     ProblemAnalysis = "ProblemAnalysis"
     ProblemAnalysisTemplate = "ProblemAnalysisTemplate"
+    CloudFormation = "CloudFormation"
+    ConformancePackTemplate = "ConformancePackTemplate"
 
 
 class ExecutionMode(str):
     Auto = "Auto"
     Interactive = "Interactive"
+
+
+class ExternalAlarmState(str):
+    UNKNOWN = "UNKNOWN"
+    ALARM = "ALARM"
 
 
 class Fault(str):
@@ -705,6 +720,7 @@ class OperatingSystem(str):
     WINDOWS = "WINDOWS"
     AMAZON_LINUX = "AMAZON_LINUX"
     AMAZON_LINUX_2 = "AMAZON_LINUX_2"
+    AMAZON_LINUX_2022 = "AMAZON_LINUX_2022"
     UBUNTU = "UBUNTU"
     REDHAT_ENTERPRISE_LINUX = "REDHAT_ENTERPRISE_LINUX"
     SUSE = "SUSE"
@@ -766,6 +782,7 @@ class OpsItemFilterKey(str):
     ChangeRequestByTemplate = "ChangeRequestByTemplate"
     ChangeRequestByTargetsResourceGroup = "ChangeRequestByTargetsResourceGroup"
     InsightByType = "InsightByType"
+    AccountId = "AccountId"
 
 
 class OpsItemFilterOperator(str):
@@ -1489,6 +1506,12 @@ class MaxDocumentSizeExceeded(ServiceException):
     status_code: int = 400
 
 
+class OpsItemAccessDeniedException(ServiceException):
+    code: str = "OpsItemAccessDeniedException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
 class OpsItemAlreadyExistsException(ServiceException):
     code: str = "OpsItemAlreadyExistsException"
     sender_fault: bool = False
@@ -1664,6 +1687,30 @@ class ResourceLimitExceededException(ServiceException):
     status_code: int = 400
 
 
+class ResourcePolicyConflictException(ServiceException):
+    code: str = "ResourcePolicyConflictException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+ResourcePolicyParameterNamesList = List[String]
+
+
+class ResourcePolicyInvalidParameterException(ServiceException):
+    code: str = "ResourcePolicyInvalidParameterException"
+    sender_fault: bool = False
+    status_code: int = 400
+    ParameterNames: Optional[ResourcePolicyParameterNamesList]
+
+
+class ResourcePolicyLimitExceededException(ServiceException):
+    code: str = "ResourcePolicyLimitExceededException"
+    sender_fault: bool = False
+    status_code: int = 400
+    Limit: Optional[Integer]
+    LimitType: Optional[String]
+
+
 class ServiceSettingNotFound(ServiceException):
     code: str = "ServiceSettingNotFound"
     sender_fault: bool = False
@@ -1803,6 +1850,26 @@ class AddTagsToResourceResult(TypedDict, total=False):
     pass
 
 
+class Alarm(TypedDict, total=False):
+    Name: AlarmName
+
+
+AlarmList = List[Alarm]
+
+
+class AlarmConfiguration(TypedDict, total=False):
+    IgnorePollAlarmFailure: Optional[Boolean]
+    Alarms: AlarmList
+
+
+class AlarmStateInformation(TypedDict, total=False):
+    Name: AlarmName
+    State: ExternalAlarmState
+
+
+AlarmStateInformationList = List[AlarmStateInformation]
+
+
 class AssociateOpsItemRelatedItemRequest(ServiceRequest):
     OpsItemId: OpsItemId
     AssociationType: OpsItemRelatedItemAssociationType
@@ -1862,6 +1929,7 @@ class TargetLocation(TypedDict, total=False):
     TargetLocationMaxConcurrency: Optional[MaxConcurrency]
     TargetLocationMaxErrors: Optional[MaxErrors]
     ExecutionRoleName: Optional[ExecutionRoleName]
+    TargetLocationAlarmConfiguration: Optional[AlarmConfiguration]
 
 
 TargetLocations = List[TargetLocation]
@@ -1916,6 +1984,8 @@ class AssociationDescription(TypedDict, total=False):
     TargetLocations: Optional[TargetLocations]
     ScheduleOffset: Optional[ScheduleOffset]
     TargetMaps: Optional[TargetMaps]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 AssociationDescriptionList = List[AssociationDescription]
@@ -1930,6 +2000,8 @@ class AssociationExecution(TypedDict, total=False):
     CreatedTime: Optional[DateTime]
     LastExecutionDate: Optional[DateTime]
     ResourceCountByStatus: Optional[ResourceCountByStatus]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 class AssociationExecutionFilter(TypedDict, total=False):
@@ -2101,6 +2173,7 @@ class StepExecution(TypedDict, total=False):
     ValidNextSteps: Optional[ValidNextStepList]
     Targets: Optional[Targets]
     TargetLocation: Optional[TargetLocation]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 StepExecutionList = List[StepExecution]
@@ -2132,6 +2205,8 @@ class AutomationExecution(TypedDict, total=False):
     Target: Optional[String]
     TargetLocations: Optional[TargetLocations]
     ProgressCounters: Optional[ProgressCounters]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
     AutomationSubtype: Optional[AutomationSubtype]
     ScheduledTime: Optional[DateTime]
     Runbooks: Optional[Runbooks]
@@ -2174,6 +2249,8 @@ class AutomationExecutionMetadata(TypedDict, total=False):
     MaxErrors: Optional[MaxErrors]
     Target: Optional[String]
     AutomationType: Optional[AutomationType]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
     AutomationSubtype: Optional[AutomationSubtype]
     ScheduledTime: Optional[DateTime]
     Runbooks: Optional[Runbooks]
@@ -2299,6 +2376,8 @@ class Command(TypedDict, total=False):
     NotificationConfig: Optional[NotificationConfig]
     CloudWatchOutputConfig: Optional[CloudWatchOutputConfig]
     TimeoutSeconds: Optional[TimeoutSeconds]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 class CommandFilter(TypedDict, total=False):
@@ -2465,6 +2544,7 @@ class CreateAssociationBatchRequestEntry(TypedDict, total=False):
     TargetLocations: Optional[TargetLocations]
     ScheduleOffset: Optional[ScheduleOffset]
     TargetMaps: Optional[TargetMaps]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 CreateAssociationBatchRequestEntries = List[CreateAssociationBatchRequestEntry]
@@ -2508,6 +2588,7 @@ class CreateAssociationRequest(ServiceRequest):
     ScheduleOffset: Optional[ScheduleOffset]
     TargetMaps: Optional[TargetMaps]
     Tags: Optional[TagList]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class CreateAssociationResult(TypedDict, total=False):
@@ -2649,10 +2730,12 @@ class CreateOpsItemRequest(ServiceRequest):
     ActualEndTime: Optional[DateTime]
     PlannedStartTime: Optional[DateTime]
     PlannedEndTime: Optional[DateTime]
+    AccountId: Optional[OpsItemAccountId]
 
 
 class CreateOpsItemResponse(TypedDict, total=False):
     OpsItemId: Optional[String]
+    OpsItemArn: Optional[OpsItemArn]
 
 
 class MetadataValue(TypedDict, total=False):
@@ -2846,6 +2929,16 @@ class DeleteResourceDataSyncRequest(ServiceRequest):
 
 
 class DeleteResourceDataSyncResult(TypedDict, total=False):
+    pass
+
+
+class DeleteResourcePolicyRequest(ServiceRequest):
+    ResourceArn: ResourceArnString
+    PolicyId: PolicyId
+    PolicyHash: PolicyHash
+
+
+class DeleteResourcePolicyResponse(TypedDict, total=False):
     pass
 
 
@@ -3390,6 +3483,8 @@ class MaintenanceWindowExecutionTaskIdentity(TypedDict, total=False):
     EndTime: Optional[DateTime]
     TaskArn: Optional[MaintenanceWindowTaskArn]
     TaskType: Optional[MaintenanceWindowTaskType]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 MaintenanceWindowExecutionTaskIdentityList = List[MaintenanceWindowExecutionTaskIdentity]
@@ -3512,6 +3607,7 @@ class MaintenanceWindowTask(TypedDict, total=False):
     Name: Optional[MaintenanceWindowName]
     Description: Optional[MaintenanceWindowDescription]
     CutoffBehavior: Optional[MaintenanceWindowTaskCutoffBehavior]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 MaintenanceWindowTaskList = List[MaintenanceWindowTask]
@@ -4150,6 +4246,8 @@ class GetMaintenanceWindowExecutionTaskResult(TypedDict, total=False):
     StatusDetails: Optional[MaintenanceWindowExecutionStatusDetails]
     StartTime: Optional[DateTime]
     EndTime: Optional[DateTime]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 class GetMaintenanceWindowRequest(ServiceRequest):
@@ -4235,10 +4333,12 @@ class GetMaintenanceWindowTaskResult(TypedDict, total=False):
     Name: Optional[MaintenanceWindowName]
     Description: Optional[MaintenanceWindowDescription]
     CutoffBehavior: Optional[MaintenanceWindowTaskCutoffBehavior]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class GetOpsItemRequest(ServiceRequest):
     OpsItemId: OpsItemId
+    OpsItemArn: Optional[OpsItemArn]
 
 
 class OpsItem(TypedDict, total=False):
@@ -4263,6 +4363,7 @@ class OpsItem(TypedDict, total=False):
     ActualEndTime: Optional[DateTime]
     PlannedStartTime: Optional[DateTime]
     PlannedEndTime: Optional[DateTime]
+    OpsItemArn: Optional[OpsItemArn]
 
 
 class GetOpsItemResponse(TypedDict, total=False):
@@ -4459,6 +4560,26 @@ class GetPatchBaselineResult(TypedDict, total=False):
     ModifiedDate: Optional[DateTime]
     Description: Optional[BaselineDescription]
     Sources: Optional[PatchSourceList]
+
+
+class GetResourcePoliciesRequest(ServiceRequest):
+    ResourceArn: ResourceArnString
+    NextToken: Optional[String]
+    MaxResults: Optional[ResourcePolicyMaxResults]
+
+
+class GetResourcePoliciesResponseEntry(TypedDict, total=False):
+    PolicyId: Optional[PolicyId]
+    PolicyHash: Optional[PolicyHash]
+    Policy: Optional[Policy]
+
+
+GetResourcePoliciesResponseEntries = List[GetResourcePoliciesResponseEntry]
+
+
+class GetResourcePoliciesResponse(TypedDict, total=False):
+    NextToken: Optional[String]
+    Policies: Optional[GetResourcePoliciesResponseEntries]
 
 
 class GetServiceSettingRequest(ServiceRequest):
@@ -4884,6 +5005,18 @@ class PutParameterResult(TypedDict, total=False):
     Tier: Optional[ParameterTier]
 
 
+class PutResourcePolicyRequest(ServiceRequest):
+    ResourceArn: ResourceArnString
+    Policy: Policy
+    PolicyId: Optional[PolicyId]
+    PolicyHash: Optional[PolicyHash]
+
+
+class PutResourcePolicyResponse(TypedDict, total=False):
+    PolicyId: Optional[PolicyId]
+    PolicyHash: Optional[PolicyHash]
+
+
 class RegisterDefaultPatchBaselineRequest(ServiceRequest):
     BaselineId: BaselineId
 
@@ -4932,6 +5065,7 @@ class RegisterTaskWithMaintenanceWindowRequest(ServiceRequest):
     Description: Optional[MaintenanceWindowDescription]
     ClientToken: Optional[ClientToken]
     CutoffBehavior: Optional[MaintenanceWindowTaskCutoffBehavior]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class RegisterTaskWithMaintenanceWindowResult(TypedDict, total=False):
@@ -4994,6 +5128,7 @@ class SendCommandRequest(ServiceRequest):
     ServiceRoleArn: Optional[ServiceRole]
     NotificationConfig: Optional[NotificationConfig]
     CloudWatchOutputConfig: Optional[CloudWatchOutputConfig]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class SendCommandResult(TypedDict, total=False):
@@ -5025,6 +5160,7 @@ class StartAutomationExecutionRequest(ServiceRequest):
     MaxErrors: Optional[MaxErrors]
     TargetLocations: Optional[TargetLocations]
     Tags: Optional[TagList]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class StartAutomationExecutionResult(TypedDict, total=False):
@@ -5110,6 +5246,7 @@ class UpdateAssociationRequest(ServiceRequest):
     TargetLocations: Optional[TargetLocations]
     ScheduleOffset: Optional[ScheduleOffset]
     TargetMaps: Optional[TargetMaps]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class UpdateAssociationResult(TypedDict, total=False):
@@ -5226,6 +5363,7 @@ class UpdateMaintenanceWindowTaskRequest(ServiceRequest):
     Description: Optional[MaintenanceWindowDescription]
     Replace: Optional[Boolean]
     CutoffBehavior: Optional[MaintenanceWindowTaskCutoffBehavior]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class UpdateMaintenanceWindowTaskResult(TypedDict, total=False):
@@ -5243,6 +5381,7 @@ class UpdateMaintenanceWindowTaskResult(TypedDict, total=False):
     Name: Optional[MaintenanceWindowName]
     Description: Optional[MaintenanceWindowDescription]
     CutoffBehavior: Optional[MaintenanceWindowTaskCutoffBehavior]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class UpdateManagedInstanceRoleRequest(ServiceRequest):
@@ -5270,6 +5409,7 @@ class UpdateOpsItemRequest(ServiceRequest):
     ActualEndTime: Optional[DateTime]
     PlannedStartTime: Optional[DateTime]
     PlannedEndTime: Optional[DateTime]
+    OpsItemArn: Optional[OpsItemArn]
 
 
 class UpdateOpsItemResponse(TypedDict, total=False):
@@ -5412,6 +5552,7 @@ class SsmApi:
         schedule_offset: ScheduleOffset = None,
         target_maps: TargetMaps = None,
         tags: TagList = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> CreateAssociationResult:
         raise NotImplementedError
 
@@ -5476,6 +5617,7 @@ class SsmApi:
         actual_end_time: DateTime = None,
         planned_start_time: DateTime = None,
         planned_end_time: DateTime = None,
+        account_id: OpsItemAccountId = None,
     ) -> CreateOpsItemResponse:
         raise NotImplementedError
 
@@ -5595,6 +5737,16 @@ class SsmApi:
         sync_name: ResourceDataSyncName,
         sync_type: ResourceDataSyncType = None,
     ) -> DeleteResourceDataSyncResult:
+        raise NotImplementedError
+
+    @handler("DeleteResourcePolicy")
+    def delete_resource_policy(
+        self,
+        context: RequestContext,
+        resource_arn: ResourceArnString,
+        policy_id: PolicyId,
+        policy_hash: PolicyHash,
+    ) -> DeleteResourcePolicyResponse:
         raise NotImplementedError
 
     @handler("DeregisterManagedInstance")
@@ -6100,7 +6252,9 @@ class SsmApi:
         raise NotImplementedError
 
     @handler("GetOpsItem")
-    def get_ops_item(self, context: RequestContext, ops_item_id: OpsItemId) -> GetOpsItemResponse:
+    def get_ops_item(
+        self, context: RequestContext, ops_item_id: OpsItemId, ops_item_arn: OpsItemArn = None
+    ) -> GetOpsItemResponse:
         raise NotImplementedError
 
     @handler("GetOpsMetadata")
@@ -6175,6 +6329,16 @@ class SsmApi:
         patch_group: PatchGroup,
         operating_system: OperatingSystem = None,
     ) -> GetPatchBaselineForPatchGroupResult:
+        raise NotImplementedError
+
+    @handler("GetResourcePolicies")
+    def get_resource_policies(
+        self,
+        context: RequestContext,
+        resource_arn: ResourceArnString,
+        next_token: String = None,
+        max_results: ResourcePolicyMaxResults = None,
+    ) -> GetResourcePoliciesResponse:
         raise NotImplementedError
 
     @handler("GetServiceSetting")
@@ -6403,6 +6567,17 @@ class SsmApi:
     ) -> PutParameterResult:
         raise NotImplementedError
 
+    @handler("PutResourcePolicy")
+    def put_resource_policy(
+        self,
+        context: RequestContext,
+        resource_arn: ResourceArnString,
+        policy: Policy,
+        policy_id: PolicyId = None,
+        policy_hash: PolicyHash = None,
+    ) -> PutResourcePolicyResponse:
+        raise NotImplementedError
+
     @handler("RegisterDefaultPatchBaseline")
     def register_default_patch_baseline(
         self, context: RequestContext, baseline_id: BaselineId
@@ -6448,6 +6623,7 @@ class SsmApi:
         description: MaintenanceWindowDescription = None,
         client_token: ClientToken = None,
         cutoff_behavior: MaintenanceWindowTaskCutoffBehavior = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> RegisterTaskWithMaintenanceWindowResult:
         raise NotImplementedError
 
@@ -6504,6 +6680,7 @@ class SsmApi:
         service_role_arn: ServiceRole = None,
         notification_config: NotificationConfig = None,
         cloud_watch_output_config: CloudWatchOutputConfig = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> SendCommandResult:
         raise NotImplementedError
 
@@ -6529,6 +6706,7 @@ class SsmApi:
         max_errors: MaxErrors = None,
         target_locations: TargetLocations = None,
         tags: TagList = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> StartAutomationExecutionResult:
         raise NotImplementedError
 
@@ -6606,6 +6784,7 @@ class SsmApi:
         target_locations: TargetLocations = None,
         schedule_offset: ScheduleOffset = None,
         target_maps: TargetMaps = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> UpdateAssociationResult:
         raise NotImplementedError
 
@@ -6703,6 +6882,7 @@ class SsmApi:
         description: MaintenanceWindowDescription = None,
         replace: Boolean = None,
         cutoff_behavior: MaintenanceWindowTaskCutoffBehavior = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> UpdateMaintenanceWindowTaskResult:
         raise NotImplementedError
 
@@ -6731,6 +6911,7 @@ class SsmApi:
         actual_end_time: DateTime = None,
         planned_start_time: DateTime = None,
         planned_end_time: DateTime = None,
+        ops_item_arn: OpsItemArn = None,
     ) -> UpdateOpsItemResponse:
         raise NotImplementedError
 

@@ -6,9 +6,8 @@ from urllib.parse import urlparse
 from moto.s3 import models as s3_models
 from moto.s3 import responses as s3_responses
 from moto.s3.exceptions import MissingBucket, S3ClientError
-from moto.s3.responses import S3_ALL_MULTIPARTS, MalformedXML, is_delete_keys, minidom
+from moto.s3.responses import S3_ALL_MULTIPARTS, MalformedXML, minidom
 from moto.s3.utils import undo_clean_key_name
-from moto.s3bucket_path import utils as s3bucket_path_utils
 
 from localstack import config
 from localstack.services.infra import start_moto_server
@@ -51,6 +50,27 @@ def check_s3(expect_shutdown=False, print_error=False):
         assert out and isinstance(out.get("Buckets"), list)
 
 
+def add_gateway_compatibility_handlers():
+    """
+    This method adds handlers that ensure compatibility between the legacy s3 provider and ASF.
+    """
+
+    def _fix_static_website_request(chain, context, response):
+        """
+        The ASF parser will recognize a request to a website as a normal 'ListBucket' request, but will be routed
+        through ``serve_static_website``, which does not return a `ListObjects` result. This would lead to errors in
+        the service response parser. So this handler unsets the AWS operation for this particular request, so it is not
+        parsed by the service response parser."""
+        if not s3_listener.is_static_website(context.request.headers):
+            return
+        if context.operation.name == "ListObjects":
+            context.operation = None
+
+    from localstack.aws.handlers import modify_service_response
+
+    modify_service_response.append("s3", _fix_static_website_request)
+
+
 def start_s3(port=None, backend_port=None, asynchronous=None, update_listener=None):
     port = port or config.service_port("s3")
     if not backend_port:
@@ -61,6 +81,9 @@ def start_s3(port=None, backend_port=None, asynchronous=None, update_listener=No
         s3_listener.PORT_S3_BACKEND = backend_port
 
     apply_patches()
+
+    if not config.LEGACY_EDGE_PROXY:
+        add_gateway_compatibility_handlers()
 
     return start_moto_server(
         key="s3",
@@ -293,29 +316,12 @@ def apply_patches():
 
         return rs_code, rs_headers, rs_content
 
-    # Patch utils_is_delete_keys
-    # https://github.com/localstack/localstack/issues/2866
-    # https://github.com/localstack/localstack/issues/2850
-    # https://github.com/localstack/localstack/issues/3931
-    # https://github.com/localstack/localstack/issues/4015
-    utils_is_delete_keys_orig = s3bucket_path_utils.is_delete_keys
-
-    def utils_is_delete_keys(request, path, bucket_name):
-        return "/" + bucket_name + "?delete=" in path or utils_is_delete_keys_orig(
-            request, path, bucket_name
-        )
-
-    @patch(s3_responses.S3ResponseInstance.is_delete_keys, pass_target=False)
-    def s3_response_is_delete_keys(self, request, path, bucket_name):
-        if self.subdomain_based_buckets(request):
-            # Temporary fix until moto supports x-id and DeleteObjects (#3931)
-            query = self._get_querystring(request.url)
-            is_delete_keys_v3 = (
-                query and ("delete" in query) and get_safe(query, "$.x-id.0") == "DeleteObjects"
-            )
-            return is_delete_keys_v3 or is_delete_keys(request, path)
-        else:
-            return utils_is_delete_keys(request, path, bucket_name)
+    @patch(s3_responses.S3Response.is_delete_keys)
+    def s3_response_is_delete_keys(fn, self):
+        """
+        Temporary fix until moto supports x-id and DeleteObjects (#3931)
+        """
+        return get_safe(self.querystring, "$.x-id.0") == "DeleteObjects" or fn(self)
 
     @patch(s3_responses.S3ResponseInstance.parse_bucket_name_from_url, pass_target=False)
     def parse_bucket_name_from_url(self, request, url):

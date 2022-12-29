@@ -6,7 +6,7 @@ import pytest
 
 from localstack import config
 from localstack.constants import ELASTICSEARCH_DEFAULT_VERSION, OPENSEARCH_DEFAULT_VERSION
-from localstack.services.install import install_elasticsearch, install_opensearch
+from localstack.services.opensearch.packages import elasticsearch_package, opensearch_package
 from localstack.utils.common import safe_requests as requests
 from localstack.utils.common import short_uid, start_worker_thread
 
@@ -33,10 +33,10 @@ def install_async():
             if installed.is_set():
                 return
             LOG.info("installing elasticsearch default version")
-            install_elasticsearch()
+            elasticsearch_package.install()
             LOG.info("done installing elasticsearch default version")
             LOG.info("installing opensearch default version")
-            install_opensearch()
+            opensearch_package.install()
             LOG.info("done installing opensearch default version")
             installed.set()
 
@@ -83,16 +83,32 @@ class TestElasticsearchProvider:
 
         versions = response["CompatibleElasticsearchVersions"]
 
-        assert len(versions) == 18
+        assert len(versions) == 20
 
-        assert {"SourceVersion": "OpenSearch_1.0", "TargetVersions": ["OpenSearch_1.1"]} in versions
+        assert {
+            "SourceVersion": "OpenSearch_1.0",
+            "TargetVersions": ["OpenSearch_1.1", "OpenSearch_1.2", "OpenSearch_1.3"],
+        } in versions
         assert {
             "SourceVersion": "7.10",
-            "TargetVersions": ["OpenSearch_1.0", "OpenSearch_1.1"],
+            "TargetVersions": [
+                "OpenSearch_1.0",
+                "OpenSearch_1.1",
+                "OpenSearch_1.2",
+                "OpenSearch_1.3",
+            ],
         } in versions
         assert {
             "SourceVersion": "7.7",
-            "TargetVersions": ["7.8", "7.9", "7.10", "OpenSearch_1.0", "OpenSearch_1.1"],
+            "TargetVersions": [
+                "7.8",
+                "7.9",
+                "7.10",
+                "OpenSearch_1.0",
+                "OpenSearch_1.1",
+                "OpenSearch_1.2",
+                "OpenSearch_1.3",
+            ],
         } in versions
 
     @pytest.mark.skip_offline

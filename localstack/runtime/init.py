@@ -78,7 +78,7 @@ class PythonScriptRunner(ScriptRunner):
 
     def run(self, path: str) -> None:
         with open(path, "rb") as fd:
-            exec(fd.read())
+            exec(fd.read(), {})
 
 
 class InitScriptManager:
@@ -150,6 +150,10 @@ class InitScriptManager:
 
     def _find_scripts(self) -> Dict[Stage, List[Script]]:
         scripts = {}
+
+        if self.script_root is None:
+            LOG.debug("Unable to discover init scripts as script_root is None")
+            return {}
 
         for stage in Stage:
             scripts[stage] = []

@@ -44,18 +44,21 @@ JobPriority = int
 JobStatusUpdateReason = str
 KmsKeyArnString = str
 Location = str
+MFA = str
 ManifestPrefixString = str
 MaxLength1024String = str
 MaxResults = int
 MinStorageBytesPercentage = float
 MultiRegionAccessPointAlias = str
 MultiRegionAccessPointClientToken = str
+MultiRegionAccessPointId = str
 MultiRegionAccessPointName = str
 NoSuchPublicAccessBlockConfigurationMessage = str
 NonEmptyMaxLength1024String = str
 NonEmptyMaxLength2048String = str
 NonEmptyMaxLength256String = str
 NonEmptyMaxLength64String = str
+NoncurrentVersionCount = int
 ObjectLambdaAccessPointArn = str
 ObjectLambdaAccessPointName = str
 ObjectLambdaPolicy = str
@@ -82,6 +85,7 @@ StringForNextToken = str
 SuspendedCause = str
 TagKeyString = str
 TagValueString = str
+TrafficDialPercentage = int
 VpcId = str
 
 
@@ -110,6 +114,11 @@ class BucketLocationConstraint(str):
     sa_east_1 = "sa-east-1"
     cn_north_1 = "cn-north-1"
     eu_central_1 = "eu-central-1"
+
+
+class BucketVersioningStatus(str):
+    Enabled = "Enabled"
+    Suspended = "Suspended"
 
 
 class ExpirationStatus(str):
@@ -163,6 +172,16 @@ class JobStatus(str):
     Suspended = "Suspended"
 
 
+class MFADelete(str):
+    Enabled = "Enabled"
+    Disabled = "Disabled"
+
+
+class MFADeleteStatus(str):
+    Enabled = "Enabled"
+    Disabled = "Disabled"
+
+
 class MultiRegionAccessPointStatus(str):
     READY = "READY"
     INCONSISTENT_ACROSS_REGIONS = "INCONSISTENT_ACROSS_REGIONS"
@@ -180,10 +199,15 @@ class NetworkOrigin(str):
 class ObjectLambdaAllowedFeature(str):
     GetObject_Range = "GetObject-Range"
     GetObject_PartNumber = "GetObject-PartNumber"
+    HeadObject_Range = "HeadObject-Range"
+    HeadObject_PartNumber = "HeadObject-PartNumber"
 
 
 class ObjectLambdaTransformationConfigurationAction(str):
     GetObject = "GetObject"
+    HeadObject = "HeadObject"
+    ListObjects = "ListObjects"
+    ListObjectsV2 = "ListObjectsV2"
 
 
 class OperationName(str):
@@ -380,9 +404,22 @@ class AccessPoint(TypedDict, total=False):
     Bucket: BucketName
     AccessPointArn: Optional[S3AccessPointArn]
     Alias: Optional[Alias]
+    BucketAccountId: Optional[AccountId]
 
 
 AccessPointList = List[AccessPoint]
+
+
+class DetailedStatusCodesMetrics(TypedDict, total=False):
+    IsEnabled: Optional[IsEnabled]
+
+
+class AdvancedDataProtectionMetrics(TypedDict, total=False):
+    IsEnabled: Optional[IsEnabled]
+
+
+class AdvancedCostOptimizationMetrics(TypedDict, total=False):
+    IsEnabled: Optional[IsEnabled]
 
 
 class SelectionCriteria(TypedDict, total=False):
@@ -407,11 +444,17 @@ class ActivityMetrics(TypedDict, total=False):
 class BucketLevel(TypedDict, total=False):
     ActivityMetrics: Optional[ActivityMetrics]
     PrefixLevel: Optional[PrefixLevel]
+    AdvancedCostOptimizationMetrics: Optional[AdvancedCostOptimizationMetrics]
+    AdvancedDataProtectionMetrics: Optional[AdvancedDataProtectionMetrics]
+    DetailedStatusCodesMetrics: Optional[DetailedStatusCodesMetrics]
 
 
 class AccountLevel(TypedDict, total=False):
     ActivityMetrics: Optional[ActivityMetrics]
     BucketLevel: BucketLevel
+    AdvancedCostOptimizationMetrics: Optional[AdvancedCostOptimizationMetrics]
+    AdvancedDataProtectionMetrics: Optional[AdvancedDataProtectionMetrics]
+    DetailedStatusCodesMetrics: Optional[DetailedStatusCodesMetrics]
 
 
 AsyncCreationTimestamp = datetime
@@ -538,6 +581,7 @@ class CreateAccessPointRequest(ServiceRequest):
     Bucket: BucketName
     VpcConfiguration: Optional[VpcConfiguration]
     PublicAccessBlockConfiguration: Optional[PublicAccessBlockConfiguration]
+    BucketAccountId: Optional[AccountId]
 
 
 class CreateAccessPointResult(TypedDict, total=False):
@@ -1047,6 +1091,7 @@ class GetAccessPointResult(TypedDict, total=False):
     Alias: Optional[Alias]
     AccessPointArn: Optional[S3AccessPointArn]
     Endpoints: Optional[Endpoints]
+    BucketAccountId: Optional[AccountId]
 
 
 class GetBucketLifecycleConfigurationRequest(ServiceRequest):
@@ -1056,6 +1101,7 @@ class GetBucketLifecycleConfigurationRequest(ServiceRequest):
 
 class NoncurrentVersionExpiration(TypedDict, total=False):
     NoncurrentDays: Optional[Days]
+    NewerNoncurrentVersions: Optional[NoncurrentVersionCount]
 
 
 class NoncurrentVersionTransition(TypedDict, total=False):
@@ -1073,17 +1119,23 @@ class Transition(TypedDict, total=False):
 
 
 TransitionList = List[Transition]
+ObjectSizeLessThanBytes = int
+ObjectSizeGreaterThanBytes = int
 
 
 class LifecycleRuleAndOperator(TypedDict, total=False):
     Prefix: Optional[Prefix]
     Tags: Optional[S3TagSet]
+    ObjectSizeGreaterThan: Optional[ObjectSizeGreaterThanBytes]
+    ObjectSizeLessThan: Optional[ObjectSizeLessThanBytes]
 
 
 class LifecycleRuleFilter(TypedDict, total=False):
     Prefix: Optional[Prefix]
     Tag: Optional[S3Tag]
     And: Optional[LifecycleRuleAndOperator]
+    ObjectSizeGreaterThan: Optional[ObjectSizeGreaterThanBytes]
+    ObjectSizeLessThan: Optional[ObjectSizeLessThanBytes]
 
 
 class LifecycleExpiration(TypedDict, total=False):
@@ -1137,6 +1189,16 @@ class GetBucketTaggingRequest(ServiceRequest):
 
 class GetBucketTaggingResult(TypedDict, total=False):
     TagSet: S3TagSet
+
+
+class GetBucketVersioningRequest(ServiceRequest):
+    AccountId: AccountId
+    Bucket: BucketName
+
+
+class GetBucketVersioningResult(TypedDict, total=False):
+    Status: Optional[BucketVersioningStatus]
+    MFADelete: Optional[MFADeleteStatus]
 
 
 class GetJobTaggingRequest(ServiceRequest):
@@ -1199,6 +1261,25 @@ class MultiRegionAccessPointReport(TypedDict, total=False):
 
 class GetMultiRegionAccessPointResult(TypedDict, total=False):
     AccessPoint: Optional[MultiRegionAccessPointReport]
+
+
+class GetMultiRegionAccessPointRoutesRequest(ServiceRequest):
+    AccountId: AccountId
+    Mrap: MultiRegionAccessPointId
+
+
+class MultiRegionAccessPointRoute(TypedDict, total=False):
+    Bucket: Optional[BucketName]
+    Region: Optional[RegionName]
+    TrafficDialPercentage: TrafficDialPercentage
+
+
+RouteList = List[MultiRegionAccessPointRoute]
+
+
+class GetMultiRegionAccessPointRoutesResult(TypedDict, total=False):
+    Mrap: Optional[MultiRegionAccessPointId]
+    Routes: Optional[RouteList]
 
 
 class GetPublicAccessBlockOutput(TypedDict, total=False):
@@ -1442,6 +1523,18 @@ class PutBucketTaggingRequest(ServiceRequest):
     Tagging: Tagging
 
 
+class VersioningConfiguration(TypedDict, total=False):
+    MFADelete: Optional[MFADelete]
+    Status: Optional[BucketVersioningStatus]
+
+
+class PutBucketVersioningRequest(ServiceRequest):
+    AccountId: AccountId
+    Bucket: BucketName
+    MFA: Optional[MFA]
+    VersioningConfiguration: VersioningConfiguration
+
+
 class PutJobTaggingRequest(ServiceRequest):
     AccountId: AccountId
     JobId: JobId
@@ -1484,6 +1577,16 @@ class PutStorageLensConfigurationTaggingResult(TypedDict, total=False):
     pass
 
 
+class SubmitMultiRegionAccessPointRoutesRequest(ServiceRequest):
+    AccountId: AccountId
+    Mrap: MultiRegionAccessPointId
+    RouteUpdates: RouteList
+
+
+class SubmitMultiRegionAccessPointRoutesResult(TypedDict, total=False):
+    pass
+
+
 class UpdateJobPriorityRequest(ServiceRequest):
     AccountId: AccountId
     JobId: JobId
@@ -1522,6 +1625,7 @@ class S3ControlApi:
         bucket: BucketName,
         vpc_configuration: VpcConfiguration = None,
         public_access_block_configuration: PublicAccessBlockConfiguration = None,
+        bucket_account_id: AccountId = None,
     ) -> CreateAccessPointResult:
         raise NotImplementedError
 
@@ -1741,6 +1845,12 @@ class S3ControlApi:
     ) -> GetBucketTaggingResult:
         raise NotImplementedError
 
+    @handler("GetBucketVersioning")
+    def get_bucket_versioning(
+        self, context: RequestContext, account_id: AccountId, bucket: BucketName
+    ) -> GetBucketVersioningResult:
+        raise NotImplementedError
+
     @handler("GetJobTagging")
     def get_job_tagging(
         self, context: RequestContext, account_id: AccountId, job_id: JobId
@@ -1763,6 +1873,12 @@ class S3ControlApi:
     def get_multi_region_access_point_policy_status(
         self, context: RequestContext, account_id: AccountId, name: MultiRegionAccessPointName
     ) -> GetMultiRegionAccessPointPolicyStatusResult:
+        raise NotImplementedError
+
+    @handler("GetMultiRegionAccessPointRoutes")
+    def get_multi_region_access_point_routes(
+        self, context: RequestContext, account_id: AccountId, mrap: MultiRegionAccessPointId
+    ) -> GetMultiRegionAccessPointRoutesResult:
         raise NotImplementedError
 
     @handler("GetPublicAccessBlock")
@@ -1895,6 +2011,17 @@ class S3ControlApi:
     ) -> None:
         raise NotImplementedError
 
+    @handler("PutBucketVersioning")
+    def put_bucket_versioning(
+        self,
+        context: RequestContext,
+        account_id: AccountId,
+        bucket: BucketName,
+        versioning_configuration: VersioningConfiguration,
+        mfa: MFA = None,
+    ) -> None:
+        raise NotImplementedError
+
     @handler("PutJobTagging")
     def put_job_tagging(
         self, context: RequestContext, account_id: AccountId, job_id: JobId, tags: S3TagSet
@@ -1939,6 +2066,16 @@ class S3ControlApi:
         account_id: AccountId,
         tags: StorageLensTags,
     ) -> PutStorageLensConfigurationTaggingResult:
+        raise NotImplementedError
+
+    @handler("SubmitMultiRegionAccessPointRoutes")
+    def submit_multi_region_access_point_routes(
+        self,
+        context: RequestContext,
+        account_id: AccountId,
+        mrap: MultiRegionAccessPointId,
+        route_updates: RouteList,
+    ) -> SubmitMultiRegionAccessPointRoutesResult:
         raise NotImplementedError
 
     @handler("UpdateJobPriority")

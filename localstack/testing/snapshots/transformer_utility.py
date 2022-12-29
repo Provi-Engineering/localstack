@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime
 from typing import Optional, Pattern
@@ -8,8 +9,12 @@ from localstack.testing.snapshots.transformer import (
     KeyValueBasedTransformer,
     RegexTransformer,
     ResponseMetaDataTransformer,
+    SortingTransformer,
 )
 from localstack.utils.net import IP_REGEX
+
+LOG = logging.getLogger(__name__)
+
 
 PATTERN_UUID = re.compile(
     r"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
@@ -100,9 +105,17 @@ class TransformerUtility:
         """
         return [
             TransformerUtility.key_value("FunctionName"),
+            TransformerUtility.key_value(
+                "CodeSize", value_replacement="<code-size>", reference_replacement=False
+            ),
             TransformerUtility.jsonpath(
                 jsonpath="$..Code.Location",
                 value_replacement="<location>",
+                reference_replacement=False,
+            ),
+            TransformerUtility.jsonpath(
+                jsonpath="$..Content.Location",
+                value_replacement="<layer-location>",
                 reference_replacement=False,
             ),
             KeyValueBasedTransformer(_resource_name_transformer, "resource"),
@@ -160,6 +173,17 @@ class TransformerUtility:
         ]
 
     @staticmethod
+    def dynamodb_api():
+        """
+        :return: array with Transformers, for dynamodb api.
+        """
+        return [
+            RegexTransformer(
+                r"([a-zA-Z0-9-_.]*)?test_table_([a-zA-Z0-9-_.]*)?", replacement="<test-table>"
+            ),
+        ]
+
+    @staticmethod
     def iam_api():
         """
         :return: array with Transformers, for iam api.
@@ -189,7 +213,8 @@ class TransformerUtility:
         """
         :return: array with Transformers, for s3 api.
         """
-        return [
+
+        s3 = [
             TransformerUtility.key_value("Name", value_replacement="bucket-name"),
             TransformerUtility.key_value("BucketName"),
             TransformerUtility.key_value("VersionId"),
@@ -201,7 +226,14 @@ class TransformerUtility:
             TransformerUtility.jsonpath(
                 jsonpath="$..Owner.ID", value_replacement="<owner-id>", reference_replacement=False
             ),
-            # for s3 notifications:
+        ]
+        # for s3 notifications:
+        s3.extend(TransformerUtility.s3_notifications_transformer())
+        return s3
+
+    @staticmethod
+    def s3_notifications_transformer():
+        return [
             TransformerUtility.jsonpath(
                 "$..responseElements.x-amz-id-2", "amz-id", reference_replacement=False
             ),
@@ -258,13 +290,31 @@ class TransformerUtility:
         ]
 
     @staticmethod
+    def route53resolver_api():
+        """
+        :return: array with Transformers, for route53resolver api.
+        """
+        return [
+            TransformerUtility.key_value(
+                "SecurityGroupIds", value_replacement="sg-ids", reference_replacement=False
+            ),
+            TransformerUtility.key_value("Id"),
+            TransformerUtility.key_value("HostVPCId", "host-vpc-id"),
+            KeyValueBasedTransformer(_resource_name_transformer, "Arn"),
+            TransformerUtility.key_value("CreatorRequestId"),
+            TransformerUtility.key_value("StatusMessage", reference_replacement=False),
+        ]
+
+    @staticmethod
     def sqs_api():
         """
         :return: array with Transformers, for sqs api.
         """
         return [
             TransformerUtility.key_value("ReceiptHandle"),
-            TransformerUtility.key_value("SenderId"),
+            TransformerUtility.key_value(
+                "SenderId"
+            ),  # TODO: flaky against AWS (e.g. /Attributes/SenderId '<sender-id:1>' → '<sender-id:2>' ... (expected → actual))
             TransformerUtility.key_value("SequenceNumber"),
             TransformerUtility.jsonpath("$..MessageAttributes.RequestID.StringValue", "request-id"),
             KeyValueBasedTransformer(_resource_name_transformer, "resource"),
@@ -318,6 +368,34 @@ class TransformerUtility:
         ]
 
     @staticmethod
+    def secretsmanager_api():
+        return [
+            KeyValueBasedTransformer(
+                lambda k, v: (
+                    k
+                    if (isinstance(k, str) and isinstance(v, list) and re.match(PATTERN_UUID, k))
+                    else None
+                ),
+                "version_uuid",
+            ),
+            KeyValueBasedTransformer(
+                lambda k, v: (
+                    v
+                    if (
+                        isinstance(k, str)
+                        and k == "VersionId"
+                        and isinstance(v, str)
+                        and re.match(PATTERN_UUID, v)
+                    )
+                    else None
+                ),
+                "version_uuid",
+            ),
+            SortingTransformer("VersionStages"),
+            SortingTransformer("Versions", lambda e: e.get("CreatedDate")),
+        ]
+
+    @staticmethod
     def secretsmanager_secret_id_arn(create_secret_res: CreateSecretResponse, index: int):
         secret_id_repl = f"<SecretId-{index}idx>"
         arn_part_repl = f"<ArnPart-{index}idx>"
@@ -366,6 +444,7 @@ def _log_stream_name_transformer(key: str, val: str) -> str:
     return None
 
 
+# TODO: actual and declared type diverge
 def _resource_name_transformer(key: str, val: str) -> str:
     if isinstance(val, str):
         match = re.match(PATTERN_ARN, val)
@@ -373,6 +452,7 @@ def _resource_name_transformer(key: str, val: str) -> str:
             res = match.groups()[-1]
             if res.startswith("<") and res.endswith(">"):
                 # value was already replaced
+                # TODO: this isn't enforced or unfortunately even upheld via standard right now
                 return None
             if ":changeSet/" in val:
                 return val.split(":changeSet/")[-1]
@@ -383,6 +463,13 @@ def _resource_name_transformer(key: str, val: str) -> str:
                 if "$" in res:
                     res = res.split("$")[0].rstrip(":")
                 return res
+            if res.startswith("layer:"):
+                # extract layer name from arn
+                match res.split(":"):
+                    case _, layer_name, _:  # noqa
+                        return layer_name  # noqa
+                    case _, layer_name:  # noqa
+                        return layer_name  # noqa
             if ":" in res:
                 return res.split(":")[-1]  # TODO might not work for every replacement
             return res

@@ -5,6 +5,7 @@ import glob
 import json
 import logging
 import os
+import queue
 import re
 import shlex
 import subprocess
@@ -30,7 +31,10 @@ from localstack.services.awslambda.lambda_utils import (
     rm_docker_container,
     store_lambda_logs,
 )
-from localstack.services.install import GO_LAMBDA_RUNTIME, INSTALL_PATH_LOCALSTACK_FAT_JAR
+from localstack.services.awslambda.packages import (
+    awslambda_go_runtime_package,
+    lambda_java_libs_package,
+)
 from localstack.utils.aws import aws_stack
 from localstack.utils.aws.aws_models import LambdaFunction
 from localstack.utils.aws.dead_letter_queue import lambda_error_to_dead_letter_queue
@@ -39,7 +43,6 @@ from localstack.utils.cloudwatch.cloudwatch_util import cloudwatched
 from localstack.utils.collections import select_attributes
 from localstack.utils.common import (
     TMP_FILES,
-    CaptureOutput,
     get_all_subclasses,
     get_free_tcp_port,
     in_docker,
@@ -69,11 +72,10 @@ from localstack.utils.container_utils.container_client import (
     PortMappings,
 )
 from localstack.utils.docker_utils import DOCKER_CLIENT, get_host_path_for_path_in_docker
-from localstack.utils.run import FuncThread
+from localstack.utils.run import CaptureOutputProcess, FuncThread
 from localstack.utils.time import timestamp_millis
 
 # constants
-LAMBDA_EXECUTOR_JAR = INSTALL_PATH_LOCALSTACK_FAT_JAR
 LAMBDA_EXECUTOR_CLASS = "cloud.localstack.LambdaExecutor"
 LAMBDA_HANDLER_ENV_VAR_NAME = "_HANDLER"
 EVENT_FILE_PATTERN = "%s/lambda.event.*.json" % config.dirs.tmp
@@ -96,9 +98,6 @@ LOG = logging.getLogger(__name__)
 
 # maximum time a pre-allocated container can sit idle before getting killed
 MAX_CONTAINER_IDLE_TIME_MS = 600 * 1000
-
-# SQS event source name
-EVENT_SOURCE_SQS = "aws:sqs"
 
 # maps lambda arns to concurrency locks
 LAMBDA_CONCURRENCY_LOCK = {}
@@ -489,7 +488,7 @@ class LambdaExecutor:
             LOG.debug(
                 "Lambda executed in Event (asynchronous) mode, no response will be returned to caller"
             )
-            FuncThread(do_execute).start()
+            FuncThread(do_execute, name="lambda-execute-async").start()
             return InvocationResult(None, log_output="Lambda executed asynchronously.")
 
         return do_execute()
@@ -1301,6 +1300,14 @@ class LambdaExecutorSeparateContainers(LambdaExecutorContainers):
         )
 
 
+@dataclasses.dataclass
+class LocalExecutorResult:
+    stdout: str
+    stderr: str
+    result: str
+    error: Dict[str, str]
+
+
 class LambdaExecutorLocal(LambdaExecutor):
     # maps functionARN -> functionVersion -> callable used to invoke a Lambda function locally
     FUNCTION_CALLABLES: Dict[str, Dict[str, Callable]] = {}
@@ -1390,41 +1397,86 @@ class LambdaExecutorLocal(LambdaExecutor):
             environment["AWS_LAMBDA_FUNCTION_MEMORY_SIZE"] = str(context.memory_limit_in_mb)
 
         # execute the Lambda function in a forked sub-process, sync result via queue
-        queue = Queue()
-
         lambda_function_callable = self.get_lambda_callable(
             lambda_function, qualifier=inv_context.function_version
         )
 
-        def do_execute():
+        def do_execute(q):
             # now we're executing in the child process, safe to change CWD and ENV
-            result = None
-            try:
-                if lambda_cwd:
-                    os.chdir(lambda_cwd)
-                    sys.path.insert(0, "")
-                if environment:
-                    os.environ.update(environment)
-                # set default env variables required for most Lambda handlers
-                self.set_default_env_variables()
-                # run the actual handler function
-                result = lambda_function_callable(inv_context.event, context)
-            except Exception as e:
-                result = str(e)
-                sys.stderr.write("%s %s" % (e, traceback.format_exc()))
-                raise
-            finally:
-                queue.put(result)
+            with CaptureOutputProcess() as c:
+                try:
+                    if lambda_cwd:
+                        os.chdir(lambda_cwd)
+                        sys.path.insert(0, "")
+                    if environment:
+                        os.environ.update(environment)
+                    # set default env variables required for most Lambda handlers
+                    self.set_default_env_variables()
 
-        process = Process(target=do_execute)
+                    # patch to make local python handlers properly log. otherwise it'll use the existing logging setup
+                    # ideally this wouldn't be necessary and the handler would be more isolated but for now it's fine
+                    # until the new provider takes over
+                    import importlib
+
+                    importlib.reload(logging)
+
+                    execute_result = lambda_function_callable(inv_context.event, context)
+                    execute_error = None
+
+                except Exception as e:
+                    execute_result = str(e)
+                    # need to translate to dict here, as custom errors from handlers cannot be pickled
+                    execute_error = {
+                        "errorType": e.__class__.__name__,
+                        "errorMessage": e.args[0],
+                        "stackTrace": traceback.format_tb(e.__traceback__),
+                    }
+                    sys.stderr.write("%s %s" % (e, traceback.format_exc()))
+
+            q.put(LocalExecutorResult(c.stdout(), c.stderr(), execute_result, execute_error))
+            q.close()
+            q.join_thread()
+
+        process_queue = Queue()
+        process = Process(target=do_execute, args=(process_queue,))
         start_time = now(millis=True)
-        error = None
-        with CaptureOutput() as c:
-            try:
-                process.run()
-            except Exception as e:
-                error = e
-        result = queue.get()
+        process.start()
+        try:
+            process_result: LocalExecutorResult = process_queue.get(
+                timeout=lambda_function.timeout or 20
+            )
+        except queue.Empty:
+            process_result = LocalExecutorResult(
+                "",
+                "",
+                "TimeoutError",
+                {
+                    "errorType": "TimeoutError",
+                    "errorMessage": "Function execution timed out",
+                    "stackTrace": [],
+                },
+            )
+        process.join(timeout=5)
+        if process.exitcode is None:
+            LOG.debug("Lambda process pid %s did not exit, trying SIGTERM", process.pid)
+            # process did not join after 5s
+            process.terminate()
+            process.join(timeout=2)
+            if process.exitcode is None:
+                # process not reacting to SIGTERM, let's kill it.
+                LOG.debug(
+                    "Lambda process pid %s did not exit on SIGTERM, trying SIGKILL", process.pid
+                )
+                process.kill()
+                process.join(timeout=1)
+                LOG.debug(
+                    "Lambda process %s exited after SIGKILL with exit code %s",
+                    process.pid,
+                    process.exitcode,
+                )
+
+        result = process_result.result
+
         end_time = now(millis=True)
 
         # Make sure to keep the log line below, to ensure the log stream gets created
@@ -1434,7 +1486,7 @@ class LambdaExecutorLocal(LambdaExecutor):
             lambda_function.arn(),
         )
         # TODO: Interweaving stdout/stderr currently not supported
-        for stream in (c.stdout(), c.stderr()):
+        for stream in (process_result.stdout, process_result.stderr):
             if stream:
                 log_output += ("\n" if log_output else "") + stream
         if isinstance(result, InvocationResult) and result.log_output:
@@ -1450,24 +1502,20 @@ class LambdaExecutorLocal(LambdaExecutor):
 
         result = result.result if isinstance(result, InvocationResult) else result
 
-        if error:
+        if error := process_result.error:
             LOG.info(
-                'Error executing Lambda "%s": %s %s',
+                'Error executing Lambda "%s": %s: %s %s',
                 lambda_function.arn(),
-                error,
-                "".join(traceback.format_tb(error.__traceback__)),
+                error["errorType"],
+                error["errorMessage"],
+                "".join(error["stackTrace"]),
             )
-            result = json.dumps(
-                {
-                    "errorType": error.__class__.__name__,
-                    "errorMessage": error.args[0],
-                    "stackTrace": traceback.format_tb(error.__traceback__),
-                }
-            )
+            result = json.dumps(error)
             raise InvocationException(result, log_output=log_output, result=result)
 
         # construct final invocation result
         invocation_result = InvocationResult(result, log_output=log_output)
+        LOG.info('Successfully executed lambda "%s"', lambda_function.arn())
         # run plugins post-processing logic
         invocation_result = self.process_result_via_plugins(inv_context, invocation_result)
         return invocation_result
@@ -1488,11 +1536,13 @@ class LambdaExecutorLocal(LambdaExecutor):
         event_file = EVENT_FILE_PATTERN.replace("*", short_uid())
         save_file(event_file, json.dumps(json_safe(event)))
         TMP_FILES.append(event_file)
-
+        installer = lambda_java_libs_package.get_installer()
+        installer.install()
+        lambda_executor_jar = installer.get_executable_path()
         classpath = "%s:%s:%s" % (
             main_file,
             Util.get_java_classpath(lambda_function.cwd),
-            LAMBDA_EXECUTOR_JAR,
+            lambda_executor_jar,
         )
         cmd = "java %s -cp %s %s %s" % (
             java_opts,
@@ -1542,8 +1592,8 @@ class LambdaExecutorLocal(LambdaExecutor):
             lambda_function.envvars["AWS_LAMBDA_EVENT_BODY"] = json.dumps(json_safe(event))
         else:
             LOG.warning("Unable to get function details for local execution of Golang Lambda")
-
-        cmd = GO_LAMBDA_RUNTIME
+        go_installer = awslambda_go_runtime_package.get_installer()
+        cmd = go_installer.get_executable_path()
         LOG.debug("Running Golang Lambda with runtime: %s", cmd)
         result = self._execute_in_custom_runtime(cmd, lambda_function=lambda_function)
         return result

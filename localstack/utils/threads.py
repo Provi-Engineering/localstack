@@ -3,10 +3,9 @@ import inspect
 import logging
 import threading
 import traceback
-from collections import defaultdict
 from concurrent.futures import Future
 from multiprocessing.dummy import Pool
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 LOG = logging.getLogger(__name__)
 
@@ -14,14 +13,33 @@ LOG = logging.getLogger(__name__)
 TMP_THREADS = []
 TMP_PROCESSES = []
 
+counter_lock = threading.Lock()
+counter = 0
+
 
 class FuncThread(threading.Thread):
     """Helper class to run a Python function in a background thread."""
 
     def __init__(
-        self, func, params=None, quiet=False, on_stop: Callable[["FuncThread"], None] = None
+        self,
+        func,
+        params=None,
+        quiet=False,
+        on_stop: Callable[["FuncThread"], None] = None,
+        name: Optional[str] = None,
     ):
-        threading.Thread.__init__(self)
+        global counter
+        global counter_lock
+
+        if name:
+            with counter_lock:
+                counter += 1
+                thread_counter_current = counter
+
+            threading.Thread.__init__(self, name=f"{name}-functhread{thread_counter_current}")
+        else:
+            threading.Thread.__init__(self)
+
         self.daemon = True
         self.params = params
         self.func = func
@@ -71,9 +89,14 @@ class FuncThread(threading.Thread):
                 LOG.warning("error while calling on_stop callback: %s", e)
 
 
-def start_thread(method, *args, **kwargs) -> FuncThread:
+def start_thread(method, *args, **kwargs) -> FuncThread:  # TODO: find all usages and add names...
     """Start the given method in a background thread, and add the thread to the TMP_THREADS shutdown hook"""
     _shutdown_hook = kwargs.pop("_shutdown_hook", True)
+    if not kwargs.get("name"):
+        LOG.debug(
+            "start_thread called without providing a custom name"
+        )  # technically we should add a new level here for *internal* warnings
+    kwargs.setdefault("name", method.__name__)
     thread = FuncThread(method, *args, **kwargs)
     thread.start()
     if _shutdown_hook:
@@ -82,6 +105,7 @@ def start_thread(method, *args, **kwargs) -> FuncThread:
 
 
 def start_worker_thread(method, *args, **kwargs):
+    kwargs.setdefault("name", "start_worker_thread")
     return start_thread(method, *args, _shutdown_hook=False, **kwargs)
 
 
@@ -134,37 +158,3 @@ def parallelize(func: Callable, arr: List, size: int = None):
 
     with Pool(size) as pool:
         return pool.map(func, arr)
-
-
-class SynchronizedDefaultDict(defaultdict):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._lock = threading.RLock()
-
-    def fromkeys(self, keys, value=None):
-        with self._lock:
-            return super().fromkeys(keys, value)
-
-    def __getitem__(self, key):
-        with self._lock:
-            return super().__getitem__(key)
-
-    def __setitem__(self, key, value):
-        with self._lock:
-            super().__setitem__(key, value)
-
-    def __delitem__(self, key):
-        with self._lock:
-            super().__delitem__(key)
-
-    def __iter__(self):
-        with self._lock:
-            return super().__iter__()
-
-    def __len__(self):
-        with self._lock:
-            return super().__len__()
-
-    def __str__(self):
-        with self._lock:
-            return super().__str__()

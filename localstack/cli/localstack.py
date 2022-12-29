@@ -45,9 +45,8 @@ def _setup_cli_debug():
 @click.option("--debug", is_flag=True, help="Enable CLI debugging mode")
 @click.option("--profile", type=str, help="Set the configuration profile")
 def localstack(debug, profile):
-    if profile:
-        os.environ["CONFIG_PROFILE"] = profile
-        config.CONFIG_PROFILE = profile
+    # --profile is read manually in localstack.cli.main because it needs to be read before localstack.config is read
+
     if debug:
         _setup_cli_debug()
 
@@ -91,7 +90,7 @@ def cmd_status_services(format):
     url = config.get_edge_url()
 
     try:
-        health = requests.get(f"{url}/health", timeout=2)
+        health = requests.get(f"{url}/_localstack/health", timeout=2)
         doc = health.json()
         services = doc.get("services", [])
         if format == "table":
@@ -144,7 +143,15 @@ def cmd_start(docker: bool, host: bool, no_banner: bool, detached: bool):
         console.rule("LocalStack Runtime Log (press [bold][yellow]CTRL-C[/yellow][/bold] to quit)")
 
     if host:
-        bootstrap.start_infra_locally()
+        try:
+            bootstrap.start_infra_locally()
+        except ImportError:
+            if config.DEBUG:
+                console.print_exception()
+            raise click.ClickException(
+                "It appears you have a light install of localstack which only supports running in docker\n"
+                "If you would like to use --host, please reinstall localstack using `pip install localstack[runtime]`"
+            )
     else:
         if detached:
             bootstrap.start_infra_in_docker_detached(console)

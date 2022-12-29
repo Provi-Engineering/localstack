@@ -4,10 +4,10 @@ from typing import List, Tuple
 import pytest
 import requests
 import werkzeug
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import MethodNotAllowed, NotFound
 
 from localstack.http import Request, Response, Router
-from localstack.http.router import E, RegexConverter, RequestArguments, route
+from localstack.http.router import E, RequestArguments, route
 from localstack.utils.common import get_free_tcp_port
 
 
@@ -112,7 +112,6 @@ class TestRouter:
 
     def test_regex_path_dispatcher(self):
         router = Router()
-        router.url_map.converters["regex"] = RegexConverter
         rgx = r"([^.]+)endpoint(.*)"
         regex = f"/<regex('{rgx}'):dist>/"
         router.add(path=regex, endpoint=noop)
@@ -122,7 +121,6 @@ class TestRouter:
 
     def test_regex_host_dispatcher(self):
         router = Router()
-        router.url_map.converters["regex"] = RegexConverter
         rgx = r"\.cloudfront.(net|localhost\.localstack\.cloud)"
         router.add(path="/", endpoint=noop, host=f"<dist_id><regex('{rgx}'):host>:<port>")
         assert router.dispatch(
@@ -136,6 +134,45 @@ class TestRouter:
                 Request(
                     method="GET",
                     headers={"Host": "ad91f538.cloudfront.amazon.aws.com:5446"},
+                )
+            )
+
+    def test_port_host_dispatcher(self):
+        collector = RequestCollector()
+        router = Router(dispatcher=collector)
+        router.add(path="/", endpoint=noop, host="localhost.localstack.cloud<port:port>")
+        # matches with the port!
+        assert router.dispatch(
+            Request(
+                method="GET",
+                headers={"Host": "localhost.localstack.cloud:4566"},
+            )
+        )
+        assert collector.requests.pop()[2] == {"port": 4566}
+        # matches without the port!
+        assert router.dispatch(
+            Request(
+                method="GET",
+                headers={"Host": "localhost.localstack.cloud"},
+            )
+        )
+        assert collector.requests.pop()[2] == {"port": None}
+
+        # invalid port
+        with pytest.raises(NotFound):
+            router.dispatch(
+                Request(
+                    method="GET",
+                    headers={"Host": "localhost.localstack.cloud:544a6"},
+                )
+            )
+
+        # does not match the host
+        with pytest.raises(NotFound):
+            router.dispatch(
+                Request(
+                    method="GET",
+                    headers={"Host": "localstack.cloud:5446"},
                 )
             )
 
@@ -220,6 +257,31 @@ class TestRouter:
 
         assert router.dispatch(Request("GET", "/users")).data == b"user"
         assert router.dispatch(Request("GET", "/users/123")).data == b"123"
+
+    def test_add_route_endpoint_with_object_per_method(self):
+        # tests whether there can be multiple rules with different methods to the same URL
+        class MyApi:
+            @route("/my_api", methods=["GET"])
+            def do_get(self, request: Request, _args):
+                # should be inherited
+                return Response(f"{request.path}/do-get")
+
+            @route("/my_api", methods=["POST", "PUT"])
+            def do_post(self, request: Request, _args):
+                # should be inherited
+                return Response(f"{request.path}/do-post-or-put")
+
+        api = MyApi()
+        router = Router()
+        rules = router.add_route_endpoints(api)
+        assert len(rules) == 2
+
+        assert router.dispatch(Request("GET", "/my_api")).data == b"/my_api/do-get"
+        assert router.dispatch(Request("POST", "/my_api")).data == b"/my_api/do-post-or-put"
+        assert router.dispatch(Request("PUT", "/my_api")).data == b"/my_api/do-post-or-put"
+
+        with pytest.raises(MethodNotAllowed):
+            router.dispatch(Request("DELETE", "/my_api"))
 
 
 class TestWsgiIntegration:

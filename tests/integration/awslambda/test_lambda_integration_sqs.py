@@ -777,7 +777,6 @@ def test_report_batch_item_failures_empty_json_batch_succeeds(
 
 
 @pytest.mark.skip_snapshot_verify(
-    condition=is_old_provider,
     paths=[
         # create event source mapping attributes
         "$..FunctionResponseTypes",
@@ -1084,3 +1083,6 @@ class TestSQSEventSourceMapping:
             )
         snapshot.match("create_event_source_mapping_exception", expected.value.response)
         expected.match(INVALID_PARAMETER_VALUE_EXCEPTION)
+
+
+# TODO: test integration with lambda logs

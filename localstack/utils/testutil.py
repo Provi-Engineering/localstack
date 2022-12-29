@@ -10,6 +10,10 @@ import time
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from localstack.testing.aws.util import is_aws_cloud
+from localstack.utils.aws import arns
+from localstack.utils.aws import resources as resource_utils
+
 try:
     from typing import Literal
 except ImportError:
@@ -20,7 +24,7 @@ import requests
 
 from localstack import config
 from localstack.aws.accounts import get_aws_account_id
-from localstack.constants import LOCALSTACK_ROOT_FOLDER, LOCALSTACK_VENV_FOLDER
+from localstack.constants import LOCALHOST_HOSTNAME, LOCALSTACK_ROOT_FOLDER, LOCALSTACK_VENV_FOLDER
 from localstack.services.awslambda.lambda_api import LAMBDA_TEST_ROLE
 from localstack.services.awslambda.lambda_utils import (
     LAMBDA_DEFAULT_HANDLER,
@@ -34,6 +38,7 @@ from localstack.utils.collections import ensure_list
 from localstack.utils.files import (
     TMP_FILES,
     chmod_r,
+    cp_r,
     is_empty_dir,
     load_file,
     mkdir,
@@ -42,7 +47,6 @@ from localstack.utils.files import (
 )
 from localstack.utils.net import get_free_tcp_port, is_port_open
 from localstack.utils.platform import is_debian
-from localstack.utils.run import run
 from localstack.utils.strings import short_uid, to_str
 from localstack.utils.sync import poll_condition
 from localstack.utils.threads import FuncThread
@@ -56,20 +60,6 @@ MAX_LAMBDA_ARCHIVE_UPLOAD_SIZE = 50_000_000
 
 def is_local_test_mode():
     return config.is_local_test_mode()
-
-
-def copy_dir(source, target):
-    if is_debian():
-        # Using the native command can be an order of magnitude faster on Travis-CI
-        return run("cp -r %s %s" % (source, target))
-    shutil.copytree(source, target)
-
-
-def rm_dir(dir):
-    if is_debian():
-        # Using the native command can be an order of magnitude faster on Travis-CI
-        return run("rm -r %s" % dir)
-    shutil.rmtree(dir)
 
 
 def create_lambda_archive(
@@ -116,7 +106,7 @@ def create_lambda_archive(
                 for file_path in glob.glob(file_to_copy):
                     name = os.path.join(target_dir, file_path.split(os.path.sep)[-1])
                     if os.path.isdir(file_path):
-                        copy_dir(file_path, name)
+                        cp_r(file_path, name)
                     else:
                         shutil.copyfile(file_path, name)
 
@@ -133,7 +123,7 @@ def create_lambda_archive(
         return result
 
 
-def delete_lambda_function(name, region_name: str = None):
+def delete_lambda_function(name, region_name: str = None):  # TODO: remove all occurrences
     client = aws_stack.connect_to_service("lambda", region_name=region_name)
     client.delete_function(FunctionName=name)
 
@@ -184,7 +174,7 @@ def create_zip_file(
         return full_zip_file
     with open(full_zip_file, "rb") as file_obj:
         zip_file_content = file_obj.read()
-    rm_dir(tmp_dir)
+    rm_rf(tmp_dir)
     return zip_file_content
 
 
@@ -244,7 +234,7 @@ def create_lambda_function(
     lambda_code = {"ZipFile": zip_file}
     if len(zip_file) > MAX_LAMBDA_ARCHIVE_UPLOAD_SIZE:
         s3 = aws_stack.connect_to_service("s3")
-        aws_stack.get_or_create_bucket(LAMBDA_ASSETS_BUCKET_NAME)
+        resource_utils.get_or_create_bucket(LAMBDA_ASSETS_BUCKET_NAME)
         asset_key = f"{short_uid()}.zip"
         s3.upload_fileobj(
             Fileobj=io.BytesIO(zip_file), Bucket=LAMBDA_ASSETS_BUCKET_NAME, Key=asset_key
@@ -316,7 +306,7 @@ def connect_api_gateway_to_http_with_lambda_proxy(
                 "integrations": [{"type": "AWS_PROXY", "uri": target_uri, "httpMethod": int_meth}],
             }
         )
-    return aws_stack.create_api_gateway(
+    return resource_utils.create_api_gateway(
         name=gateway_name,
         resources=resources,
         stage_name=stage_name,
@@ -345,8 +335,8 @@ def create_lambda_api_gateway_integration(
     # create Lambda
     zip_file = create_lambda_archive(handler_file, get_content=True, runtime=runtime)
     create_lambda_function(func_name=func_name, zip_file=zip_file, runtime=runtime)
-    func_arn = aws_stack.lambda_function_arn(func_name)
-    target_arn = aws_stack.apigateway_invocations_arn(func_arn)
+    func_arn = arns.lambda_function_arn(func_name)
+    target_arn = arns.apigateway_invocations_arn(func_arn)
 
     # connect API GW to Lambda
     result = connect_api_gateway_to_http_with_lambda_proxy(
@@ -493,15 +483,6 @@ def map_all_s3_objects(to_json: bool = True, buckets: List[str] = None) -> Dict[
     return result
 
 
-def get_sample_arn(service, resource):
-    return "arn:aws:%s:%s:%s:%s" % (
-        service,
-        aws_stack.get_region(),
-        get_aws_account_id(),
-        resource,
-    )
-
-
 def send_describe_dynamodb_ttl_request(table_name):
     return send_dynamodb_request("", "DescribeTimeToLive", json.dumps({"TableName": table_name}))
 
@@ -530,25 +511,6 @@ def send_dynamodb_request(path, action, request_body):
     }
     url = f"{config.service_url('dynamodb')}/{path}"
     return requests.put(url, data=request_body, headers=headers, verify=False)
-
-
-def create_sqs_queue(queue_name):
-    """Utility method to create a new queue via SQS API"""
-
-    client = aws_stack.connect_to_service("sqs")
-
-    # create queue
-    queue_url = client.create_queue(QueueName=queue_name)["QueueUrl"]
-
-    # get the queue arn
-    queue_arn = client.get_queue_attributes(QueueUrl=queue_url, AttributeNames=["QueueArn"],)[
-        "Attributes"
-    ]["QueueArn"]
-
-    return {
-        "QueueUrl": queue_url,
-        "QueueArn": queue_arn,
-    }
 
 
 def get_lambda_log_group_name(function_name):
@@ -679,15 +641,6 @@ def proxy_server(proxy_listener, host="127.0.0.1", port=None) -> str:
     thread.stop()
 
 
-def json_response(data, code=200, headers: Dict = None) -> requests.Response:
-    r = requests.Response()
-    r._content = json.dumps(data)
-    r.status_code = code
-    if headers:
-        r.headers.update(headers)
-    return r
-
-
 def list_all_resources(
     page_function: Callable[[dict], Any],
     last_token_attr_name: str,
@@ -743,9 +696,24 @@ def list_all_resources(
 
 
 def response_arn_matches_partition(client, response_arn: str) -> bool:
-    parsed_arn = aws_stack.parse_arn(response_arn)
+    parsed_arn = arns.parse_arn(response_arn)
     return (
         client.meta.partition
         == boto3.session.Session().get_partition_for_region(parsed_arn["region"])
         and client.meta.partition == parsed_arn["partition"]
     )
+
+
+def upload_file_to_bucket(s3_client, bucket_name, file_path, file_name=None):
+    key = file_name or f"file-{short_uid()}"
+
+    s3_client.upload_file(
+        file_path,
+        Bucket=bucket_name,
+        Key=key,
+    )
+
+    domain = "amazonaws.com" if is_aws_cloud() else f"{LOCALHOST_HOSTNAME}:{config.EDGE_PORT}"
+    url = f"https://{bucket_name}.s3.{domain}/{key}"
+
+    return {"Bucket": bucket_name, "Key": key, "Url": url}
