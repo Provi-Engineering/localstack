@@ -3,12 +3,13 @@ import os
 from typing import List, Optional
 
 from localstack import config
-from localstack.config import dirs, is_env_true
-from localstack.services import install
-from localstack.services.install import DDB_AGENT_JAR_PATH
+from localstack.config import is_env_true
+from localstack.services.dynamodb.packages import dynamodblocal_package
 from localstack.utils.aws import aws_stack
+from localstack.utils.bootstrap import is_api_key_configured
 from localstack.utils.common import TMP_THREADS, ShellCommandThread, get_free_tcp_port, mkdir
 from localstack.utils.files import rm_rf
+from localstack.utils.persistence import is_persistence_enabled
 from localstack.utils.run import FuncThread
 from localstack.utils.serving import Server
 from localstack.utils.sync import retry
@@ -46,17 +47,17 @@ class DynamodbServer(Server):
 
     @property
     def jar_path(self) -> str:
-        return f"{dirs.static_libs}/dynamodb/DynamoDBLocal.jar"
+        return f"{dynamodblocal_package.get_installed_dir()}/DynamoDBLocal.jar"
 
     @property
     def library_path(self) -> str:
-        return f"{dirs.static_libs}/dynamodb/DynamoDBLocal_lib"
+        return f"{dynamodblocal_package.get_installed_dir()}/DynamoDBLocal_lib"
 
     def _create_shell_command(self) -> List[str]:
         cmd = [
             "java",
             "-Xmx%s" % self.heap_size,
-            f"-javaagent:{DDB_AGENT_JAR_PATH}",
+            f"-javaagent:{dynamodblocal_package.get_installer().get_ddb_agent_jar_path()}",
             f"-Djava.library.path={self.library_path}",
             "-jar",
             self.jar_path,
@@ -78,7 +79,7 @@ class DynamodbServer(Server):
         return cmd + parameters
 
     def do_start_thread(self) -> FuncThread:
-        install.install_dynamodb_local()
+        dynamodblocal_package.install()
 
         cmd = self._create_shell_command()
         LOG.debug("starting dynamodb process %s", cmd)
@@ -87,6 +88,7 @@ class DynamodbServer(Server):
             strip_color=True,
             log_listener=self._log_listener,
             auto_restart=True,
+            name="dynamodb-server",
         )
         TMP_THREADS.append(t)
         t.start()
@@ -97,14 +99,30 @@ class DynamodbServer(Server):
 
 
 def create_dynamodb_server(
-    port=None, db_path: Optional[str] = None, clean_db_path: bool = False
+    port: Optional[int] = None, db_path: Optional[str] = None, clean_db_path: Optional[bool] = None
 ) -> DynamodbServer:
     """
-    Creates a dynamodb server from the LocalStack configuration.
+    Creates a DynamoDB server from the local configuration.
+    :param port:          optional, the port to start the server on (defaults to a random port)
+    :param db_path:       path to the persistent state files used by the DynamoDB Local process
+    :param clean_db_path: optional, whether to clean the state files before starting the process; if None is passed,
+                          the state files are cleaned by default, unless persistence is enabled with API key configured
+    :return: the server instance
     """
     port = port or get_free_tcp_port()
     server = DynamodbServer(port)
     db_path = f"{config.dirs.data}/dynamodb" if not db_path and config.dirs.data else db_path
+
+    if is_env_true("DYNAMODB_IN_MEMORY"):
+        # the DYNAMODB_IN_MEMORY variable takes precedence and will set the DB path to None which forces inMemory=true
+        db_path = None
+
+    # In some cases (e.g., DDB starting not in memory and persistence not set), the DBLocal assets are persisted
+    # but the Store data is not. This might lead to an inconsistent state (#7118). Therefore, we clean the db path
+    # before starting the DynamoDB server. Note: only cleaning if clean_db_path is None (i.e., not specified)
+    if clean_db_path is None:
+        clean_db_path = not (is_persistence_enabled() and is_api_key_configured())
+
     if db_path:
         if clean_db_path:
             rm_rf(db_path)

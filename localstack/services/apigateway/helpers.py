@@ -1,13 +1,12 @@
 import contextlib
-import datetime
 import json
 import logging
 import re
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from urllib import parse as urlparse
 
-import pytz
 from apispec import APISpec
 from botocore.utils import InvalidArnException
 from jsonpatch import apply_patch
@@ -25,11 +24,12 @@ from localstack.constants import (
     PATH_USER_REQUEST,
 )
 from localstack.services.apigateway.context import ApiInvocationContext
-from localstack.services.generic_proxy import RegionBackend
+from localstack.services.apigateway.models import ApiGatewayStore, apigateway_stores
 from localstack.utils import common
-from localstack.utils.aws import aws_stack
+from localstack.utils.aws import aws_stack, queries
+from localstack.utils.aws import resources as resource_utils
+from localstack.utils.aws.arns import parse_arn
 from localstack.utils.aws.aws_responses import requests_error_response_json, requests_response
-from localstack.utils.aws.aws_stack import parse_arn
 from localstack.utils.aws.request_context import MARKER_APIGW_REQUEST_REGION, THREAD_LOCAL
 from localstack.utils.strings import long_uid
 from localstack.utils.time import TIMESTAMP_FORMAT_TZ, timestamp
@@ -67,47 +67,11 @@ APIGATEWAY_SQS_DATA_INBOUND_TEMPLATE = (
 # special tag name to allow specifying a custom ID for new REST APIs
 TAG_KEY_CUSTOM_ID = "_custom_id_"
 
-# map API IDs to region names - TODO remove and replace with in-memory lookup
-API_REGIONS = {}
-
 # TODO: make the CRUD operations in this file generic for the different model types (authorizes, validators, ...)
 
 
-class APIGatewayRegion(RegionBackend):
-    # TODO: introduce a RestAPI class to encapsulate the variables below
-    # maps (API id) -> [authorizers]
-    authorizers: Dict[str, List[Dict]]
-    # maps (API id) -> [validators]
-    validators: Dict[str, List[Dict]]
-    # maps (API id) -> [documentation_parts]
-    documentation_parts: Dict[str, List[Dict]]
-    # maps (API id) -> [gateway_responses]
-    gateway_responses: Dict[str, List[Dict]]
-    # account details
-    account: Dict[str, Any]
-    # maps (domain_name) -> [path_mappings]
-    base_path_mappings: Dict[str, List[Dict]]
-    # maps ID to VPC link details
-    vpc_links: Dict[str, Dict]
-    # maps cert ID to client certificate details
-    client_certificates: Dict[str, Dict]
-    # maps resource ARN to tags
-    TAGS: Dict[str, Dict[str, str]] = {}
-
-    def __init__(self):
-        self.authorizers = {}
-        self.validators = {}
-        self.documentation_parts = {}
-        self.gateway_responses = {}
-        self.account = {
-            "cloudwatchRoleArn": aws_stack.role_arn("api-gw-cw-role"),
-            "throttleSettings": {"burstLimit": 1000, "rateLimit": 500},
-            "features": ["UsagePlans"],
-            "apiKeyVersion": "1",
-        }
-        self.base_path_mappings = {}
-        self.vpc_links = {}
-        self.client_certificates = {}
+def get_apigateway_store(account_id: str = None, region: str = None) -> ApiGatewayStore:
+    return apigateway_stores[account_id or get_aws_account_id()][region or aws_stack.get_region()]
 
 
 class Resolver:
@@ -216,9 +180,7 @@ def get_stage_variables(context: ApiInvocationContext) -> Optional[Dict[str, str
     if not context.stage:
         return {}
 
-    region_name = [
-        name for name, region in apigateway_backends.items() if context.api_id in region.apis
-    ][0]
+    _, region_name = get_api_account_id_and_region(context.api_id)
     api_gateway_client = aws_stack.connect_to_service("apigateway", region_name=region_name)
     try:
         response = api_gateway_client.get_stage(restApiId=context.api_id, stageName=context.stage)
@@ -250,7 +212,7 @@ def gateway_response_to_response_json(item, api_id):
 
 
 def get_gateway_responses(api_id):
-    region_details = APIGatewayRegion.get()
+    region_details = get_apigateway_store()
     result = region_details.gateway_responses.get(api_id, [])
 
     href = "http://docs.aws.amazon.com/apigateway/latest/developerguide/restapi-gatewayresponse-{rel}.html"
@@ -276,7 +238,7 @@ def get_gateway_responses(api_id):
 
 
 def get_gateway_response(api_id, response_type):
-    region_details = APIGatewayRegion.get()
+    region_details = get_apigateway_store()
     responses = region_details.gateway_responses.get(api_id, [])
     if result := [r for r in responses if r["responseType"] == response_type]:
         return result[0]
@@ -287,7 +249,7 @@ def get_gateway_response(api_id, response_type):
 
 
 def put_gateway_response(api_id, response_type, data):
-    region_details = APIGatewayRegion.get()
+    region_details = get_apigateway_store()
     responses = region_details.gateway_responses.setdefault(api_id, [])
     if existing := ([r for r in responses if r["responseType"] == response_type] or [None])[0]:
         existing.update(data)
@@ -298,7 +260,7 @@ def put_gateway_response(api_id, response_type, data):
 
 
 def delete_gateway_response(api_id, response_type):
-    region_details = APIGatewayRegion.get()
+    region_details = get_apigateway_store()
     responses = region_details.gateway_responses.get(api_id) or []
     region_details.gateway_responses[api_id] = [
         r for r in responses if r["responseType"] != response_type
@@ -307,7 +269,7 @@ def delete_gateway_response(api_id, response_type):
 
 
 def update_gateway_response(api_id, response_type, data):
-    region_details = APIGatewayRegion.get()
+    region_details = get_apigateway_store()
     responses = region_details.gateway_responses.setdefault(api_id, [])
 
     existing = ([r for r in responses if r["responseType"] == response_type] or [None])[0]
@@ -344,12 +306,12 @@ def handle_gateway_responses(method, path, data, headers):
 
 
 def find_api_subentity_by_id(api_id, entity_id, map_name):
-    region_details = APIGatewayRegion.get()
+    region_details = get_apigateway_store()
     auth_list = getattr(region_details, map_name).get(api_id) or []
     return ([a for a in auth_list if a["id"] == entity_id] or [None])[0]
 
 
-def path_based_url(api_id, stage_name, path):
+def path_based_url(api_id: str, stage_name: str, path: str) -> str:
     """Return URL for inbound API gateway for given API ID, stage name, and path"""
     pattern = "%s/restapis/{api_id}/{stage_name}/%s{path}" % (
         config.service_url("apigateway"),
@@ -394,7 +356,7 @@ def extract_path_params(path: str, extracted_path: str) -> Dict[str, str]:
     return path_params
 
 
-def extract_query_string_params(path: str) -> list[str, Dict[str, str]]:
+def extract_query_string_params(path: str) -> Tuple[str, Dict[str, str]]:
     parsed_path = urlparse.urlparse(path)
     path = parsed_path.path
     parsed_query_string_params = urlparse.parse_qs(parsed_path.query)
@@ -406,9 +368,8 @@ def extract_query_string_params(path: str) -> list[str, Dict[str, str]]:
         else:
             query_string_params[query_param_name] = query_param_values
 
-    # strip trailing slashes from path to fix downstream lookups
-    path = path.rstrip("/") or "/"
-    return [path, query_string_params]
+    path = path or "/"
+    return path, query_string_params
 
 
 def get_cors_response(headers):
@@ -432,7 +393,7 @@ def get_rest_api_paths(rest_api_id, region_name=None):
         path = resource.get("path")
         # TODO: check if this is still required in the general case (can we rely on "path" being
         #  present?)
-        path = path or aws_stack.get_apigateway_path_for_resource(
+        path = path or queries.get_apigateway_path_for_resource(
             rest_api_id, resource["id"], region_name=region_name
         )
         resource_map[path] = resource
@@ -522,7 +483,7 @@ def connect_api_gateway_to_sqs(gateway_name, stage_name, queue_arn, path, region
             ],
         }
     ]
-    return aws_stack.create_api_gateway(
+    return resource_utils.create_api_gateway(
         name=gateway_name,
         resources=resources,
         stage_name=stage_name,
@@ -590,6 +551,11 @@ def import_api_from_openapi_spec(rest_api: RestAPI, body: Dict, query_params: Di
     """Import an API from an OpenAPI spec document"""
 
     resolved_schema = resolve_references(body)
+
+    # TODO:
+    # 1. validate the "mode" property of the spec document, "merge" or "overwrite"
+    # 2. validate the document type, "swagger" or "openapi"
+
     # XXX for some reason this makes cf tests fail that's why is commented.
     # test_cfn_handle_serverless_api_resource
     # rest_api.name = resolved_schema.get("info", {}).get("title")
@@ -638,15 +604,15 @@ def import_api_from_openapi_spec(rest_api: RestAPI, body: Dict, query_params: Di
                         or 300,
                     )
                     if authorizer:
-                        authorizers.update({security_scheme_name: authorizer})
+                        authorizers[security_scheme_name] = authorizer
                     return authorizer
 
-    def get_or_create_path(path):
-        parts = path.rstrip("/").replace("//", "/").split("/")
+    def get_or_create_path(abs_path: str, base_path: str):
+        parts = abs_path.rstrip("/").replace("//", "/").split("/")
         parent_id = ""
         if len(parts) > 1:
             parent_path = "/".join(parts[:-1])
-            parent = get_or_create_path(parent_path)
+            parent = get_or_create_path(parent_path, base_path=base_path)
             parent_id = parent.id
         if existing := [
             r
@@ -654,12 +620,16 @@ def import_api_from_openapi_spec(rest_api: RestAPI, body: Dict, query_params: Di
             if r.path_part == (parts[-1] or "/") and (r.parent_id or "") == (parent_id or "")
         ]:
             return existing[0]
-        return add_path(path, parts, parent_id=parent_id)
 
-    def add_path(path, parts, parent_id=""):
+        # construct relative path (without base path), then add field resources for this path
+        rel_path = abs_path.removeprefix(base_path)
+        return add_path_methods(rel_path, parts, parent_id=parent_id)
+
+    def add_path_methods(rel_path: str, parts: List[str], parent_id=""):
         child_id = create_resource_id()
-        path = path or "/"
+        rel_path = rel_path or "/"
         resource = Resource(
+            account_id=rest_api.account_id,
             resource_id=child_id,
             region_name=rest_api.region_name,
             api_id=rest_api.id,
@@ -667,13 +637,25 @@ def import_api_from_openapi_spec(rest_api: RestAPI, body: Dict, query_params: Di
             parent_id=parent_id,
         )
 
-        for method, method_schema in resolved_schema["paths"].get(path, {}).items():
-            method = method.upper()
+        paths_dict = resolved_schema["paths"]
+        method_paths = paths_dict.get(rel_path, {})
+        for field, field_schema in method_paths.items():
+            if field in [
+                "parameters",
+                "servers",
+                "description",
+                "summary",
+                "$ref",
+            ] or not isinstance(field_schema, dict):
+                LOG.warning("Ignoring unsupported field %s in path %s", field, rel_path)
+                continue
 
-            method_integration = method_schema.get("x-amazon-apigateway-integration", {})
-            method_resource = create_method_resource(resource, method, method_schema)
-            method_resource["requestParameters"] = method_integration.get("requestParameters")
-            responses = method_schema.get("responses", {})
+            field = field.upper()
+
+            method_integration = field_schema.get("x-amazon-apigateway-integration", {})
+            method_resource = create_method_resource(resource, field, field_schema)
+            method_resource.request_parameters = method_integration.get("requestParameters")
+            responses = field_schema.get("responses", {})
             for status_code in responses:
                 response_model = None
                 if model_schema := responses.get(status_code, {}).get("schema", {}):
@@ -691,7 +673,7 @@ def import_api_from_openapi_spec(rest_api: RestAPI, body: Dict, query_params: Di
                 )
 
             integration = Integration(
-                http_method=method,
+                http_method=field,
                 uri=method_integration.get("uri"),
                 integration_type=method_integration.get("type"),
                 passthrough_behavior=method_integration.get("passthroughBehavior"),
@@ -706,9 +688,10 @@ def import_api_from_openapi_spec(rest_api: RestAPI, body: Dict, query_params: Di
                 response_templates=method_integration.get("responses", {})
                 .get("default", {})
                 .get("responseTemplates", None),
+                response_parameters=None,
                 content_handling=None,
             )
-            resource.resource_methods[method]["methodIntegration"] = integration
+            resource.resource_methods[field].method_integration = integration
 
         rest_api.resources[child_id] = resource
         return resource
@@ -717,9 +700,9 @@ def import_api_from_openapi_spec(rest_api: RestAPI, body: Dict, query_params: Di
         return (
             child.add_method(
                 method,
-                authorization_type=authorizer.get("type"),
+                authorization_type=authorizer.type,
                 api_key_required=None,
-                authorizer_id=authorizer.get("id"),
+                authorizer_id=authorizer.id,
             )
             if (authorizer := create_authorizer(method_schema))
             else child.add_method(method, None, None)
@@ -727,12 +710,22 @@ def import_api_from_openapi_spec(rest_api: RestAPI, body: Dict, query_params: Di
 
     if definitions := resolved_schema.get("definitions", {}):
         for name, model in definitions.items():
-            rest_api.add_model(name=name, schema=model, content_type=APPLICATION_JSON)
+            # TODO: validate if description is required
+            rest_api.add_model(
+                name=name, description="", schema=model, content_type=APPLICATION_JSON
+            )
 
+    # determine base path
     basepath_mode = (query_params.get("basepath") or ["prepend"])[0]
-    base_path = (resolved_schema.get("basePath") or "") if basepath_mode == "prepend" else ""
+    base_path = ""
+    if basepath_mode == "prepend":
+        base_path = resolved_schema.get("basePath") or ""
+    if basepath_mode == "split":
+        base_path = (resolved_schema.get("basePath") or "").strip("/").split("/")[0]
+        base_path = f"/{base_path}" if base_path else ""
+
     for path in resolved_schema.get("paths", {}):
-        get_or_create_path(base_path + path)
+        get_or_create_path(base_path + path, base_path=base_path)
 
     policy = resolved_schema.get("x-amazon-apigateway-policy")
     if policy:
@@ -755,7 +748,7 @@ def get_target_resource_details(invocation_context: ApiInvocationContext) -> Tup
     path_map = get_rest_api_paths(
         rest_api_id=invocation_context.api_id, region_name=invocation_context.region_name
     )
-    relative_path = invocation_context.invocation_path
+    relative_path = invocation_context.invocation_path.rstrip("/") or "/"
     try:
         extracted_path, resource = get_resource_for_path(path=relative_path, path_map=path_map)
         invocation_context.resource = resource
@@ -808,9 +801,7 @@ def get_event_request_context(invocation_context: ApiInvocationContext):
         },
         "httpMethod": method,
         "protocol": "HTTP/1.1",
-        "requestTime": pytz.utc.localize(datetime.datetime.utcnow()).strftime(
-            REQUEST_TIME_DATE_FORMAT
-        ),
+        "requestTime": datetime.now(timezone.utc).strftime(REQUEST_TIME_DATE_FORMAT),
         "requestTimeEpoch": int(time.time() * 1000),
         "authorizer": {},
     }
@@ -879,7 +870,7 @@ def set_api_id_stage_invocation_path(
         # set current region in request thread local, to ensure aws_stack.get_region() works properly
         # TODO: replace with RequestContextManager
         if getattr(THREAD_LOCAL, "request_context", None) is not None:
-            api_region = API_REGIONS.get(api_id, "")
+            _, api_region = get_api_account_id_and_region(api_id)
             THREAD_LOCAL.request_context.headers[MARKER_APIGW_REQUEST_REGION] = api_region
 
     # set details in invocation context
@@ -887,6 +878,17 @@ def set_api_id_stage_invocation_path(
     invocation_context.stage = stage
     invocation_context.path_with_query_string = relative_path_w_query_params
     return invocation_context
+
+
+def get_api_account_id_and_region(api_id: str) -> Tuple[Optional[str], Optional[str]]:
+    """Return the region name for the given REST API ID"""
+    for account_id, account in apigateway_backends.items():
+        for region_name, region in account.items():
+            # compare low case keys to avoid case sensitivity issues
+            for key in region.apis.keys():
+                if key.lower() == api_id.lower():
+                    return account_id, region_name
+    return None, None
 
 
 def extract_api_id_from_hostname_in_url(hostname: str) -> str:
@@ -925,7 +927,7 @@ class OpenApiExporter:
     exporters: Dict[str, TypeExporter]
 
     def __init__(self):
-        self.exporters = {"swagger": self._swagger_export, "oas3": self._oas3_export}
+        self.exporters = {"swagger": self._swagger_export, "oas30": self._oas30_export}
         self.export_formats = {"application/json": "to_dict", "application/yaml": "to_yaml"}
 
     def export_api(
@@ -968,7 +970,7 @@ class OpenApiExporter:
 
         return getattr(spec, self.export_formats.get(export_format))()
 
-    def _oas3_export(self, api_id: str, stage: str, export_format: str) -> str:
+    def _oas30_export(self, api_id: str, stage: str, export_format: str) -> str:
         """
         https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md
         """

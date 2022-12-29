@@ -17,6 +17,8 @@ DomainNameString = str
 IdempotencyToken = str
 MaxItems = int
 NextToken = str
+NullableBoolean = bool
+PcaArn = str
 PositiveInteger = int
 PrivateKey = str
 ServiceErrorMessage = str
@@ -141,6 +143,15 @@ class RevocationReason(str):
     A_A_COMPROMISE = "A_A_COMPROMISE"
 
 
+class SortBy(str):
+    CREATED_AT = "CREATED_AT"
+
+
+class SortOrder(str):
+    ASCENDING = "ASCENDING"
+    DESCENDING = "DESCENDING"
+
+
 class ValidationMethod(str):
     EMAIL = "EMAIL"
     DNS = "DNS"
@@ -150,112 +161,96 @@ class AccessDeniedException(ServiceException):
     code: str = "AccessDeniedException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[ServiceErrorMessage]
 
 
 class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidArgsException(ServiceException):
     code: str = "InvalidArgsException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidArnException(ServiceException):
     code: str = "InvalidArnException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidDomainValidationOptionsException(ServiceException):
     code: str = "InvalidDomainValidationOptionsException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidParameterException(ServiceException):
     code: str = "InvalidParameterException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidStateException(ServiceException):
     code: str = "InvalidStateException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidTagException(ServiceException):
     code: str = "InvalidTagException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class LimitExceededException(ServiceException):
     code: str = "LimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class RequestInProgressException(ServiceException):
     code: str = "RequestInProgressException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ResourceInUseException(ServiceException):
     code: str = "ResourceInUseException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class TagPolicyException(ServiceException):
     code: str = "TagPolicyException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ThrottlingException(ServiceException):
     code: str = "ThrottlingException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[AvailabilityErrorMessage]
 
 
 class TooManyTagsException(ServiceException):
     code: str = "TooManyTagsException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ValidationException(ServiceException):
     code: str = "ValidationException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ValidationExceptionMessage]
 
 
 class Tag(TypedDict, total=False):
@@ -357,11 +352,29 @@ class CertificateDetail(TypedDict, total=False):
 
 
 CertificateStatuses = List[CertificateStatus]
+ExtendedKeyUsageNames = List[ExtendedKeyUsageName]
+KeyUsageNames = List[KeyUsageName]
 
 
 class CertificateSummary(TypedDict, total=False):
     CertificateArn: Optional[Arn]
     DomainName: Optional[DomainNameString]
+    SubjectAlternativeNameSummaries: Optional[DomainList]
+    HasAdditionalSubjectAlternativeNames: Optional[NullableBoolean]
+    Status: Optional[CertificateStatus]
+    Type: Optional[CertificateType]
+    KeyAlgorithm: Optional[KeyAlgorithm]
+    KeyUsages: Optional[KeyUsageNames]
+    ExtendedKeyUsages: Optional[ExtendedKeyUsageNames]
+    InUse: Optional[NullableBoolean]
+    Exported: Optional[NullableBoolean]
+    RenewalEligibility: Optional[RenewalEligibility]
+    NotBefore: Optional[TStamp]
+    NotAfter: Optional[TStamp]
+    CreatedAt: Optional[TStamp]
+    IssuedAt: Optional[TStamp]
+    ImportedAt: Optional[TStamp]
+    RevokedAt: Optional[TStamp]
 
 
 CertificateSummaryList = List[CertificateSummary]
@@ -449,6 +462,8 @@ class ListCertificatesRequest(ServiceRequest):
     Includes: Optional[Filters]
     NextToken: Optional[NextToken]
     MaxItems: Optional[MaxItems]
+    SortBy: Optional[SortBy]
+    SortOrder: Optional[SortOrder]
 
 
 class ListCertificatesResponse(TypedDict, total=False):
@@ -485,8 +500,9 @@ class RequestCertificateRequest(ServiceRequest):
     IdempotencyToken: Optional[IdempotencyToken]
     DomainValidationOptions: Optional[DomainValidationOptionList]
     Options: Optional[CertificateOptions]
-    CertificateAuthorityArn: Optional[Arn]
+    CertificateAuthorityArn: Optional[PcaArn]
     Tags: Optional[TagList]
+    KeyAlgorithm: Optional[KeyAlgorithm]
 
 
 class RequestCertificateResponse(TypedDict, total=False):
@@ -564,6 +580,8 @@ class AcmApi:
         includes: Filters = None,
         next_token: NextToken = None,
         max_items: MaxItems = None,
+        sort_by: SortBy = None,
+        sort_order: SortOrder = None,
     ) -> ListCertificatesResponse:
         raise NotImplementedError
 
@@ -602,8 +620,9 @@ class AcmApi:
         idempotency_token: IdempotencyToken = None,
         domain_validation_options: DomainValidationOptionList = None,
         options: CertificateOptions = None,
-        certificate_authority_arn: Arn = None,
+        certificate_authority_arn: PcaArn = None,
         tags: TagList = None,
+        key_algorithm: KeyAlgorithm = None,
     ) -> RequestCertificateResponse:
         raise NotImplementedError
 

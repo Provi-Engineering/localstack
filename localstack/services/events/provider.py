@@ -31,11 +31,13 @@ from localstack.aws.api.events import (
     TagList,
 )
 from localstack.constants import APPLICATION_AMZ_JSON_1_1
+from localstack.services.events.models import EventsStore, events_stores
 from localstack.services.events.scheduler import JobScheduler
-from localstack.services.generic_proxy import RegionBackend
 from localstack.services.moto import call_moto
+from localstack.services.plugins import ServiceLifecycleHook
 from localstack.utils.aws import aws_stack
 from localstack.utils.aws.message_forwarding import send_event_to_target
+from localstack.utils.collections import pick_attributes
 from localstack.utils.common import TMP_FILES, mkdir, save_file, truncate
 from localstack.utils.json import extract_jsonpath
 from localstack.utils.strings import long_uid, short_uid
@@ -50,10 +52,19 @@ CONTENT_BASE_FILTER_KEYWORDS = ["prefix", "anything-but", "numeric", "cidr", "ex
 CONNECTION_NAME_PATTERN = re.compile("^[\\.\\-_A-Za-z0-9]+$")
 
 
-class EventsProvider(EventsApi):
+class EventsProvider(EventsApi, ServiceLifecycleHook):
     def __init__(self):
         apply_patches()
+
+    def on_before_start(self):
         JobScheduler.start()
+
+    def on_before_stop(self):
+        JobScheduler.shutdown()
+
+    @staticmethod
+    def get_store() -> EventsStore:
+        return events_stores[get_aws_account_id()][aws_stack.get_region()]
 
     @staticmethod
     def get_scheduled_rule_func(rule_name: RuleName):
@@ -71,7 +82,7 @@ class EventsProvider(EventsApi):
                 # TODO generate event matching aws in case no Input has been specified
                 event_str = target.get("Input") or "{}"
                 event = json.loads(event_str)
-                attr = aws_stack.get_events_target_attributes(target)
+                attr = pick_attributes(target, ["$.SqsParameters", "$.KinesisParameters"])
                 try:
                     send_event_to_target(arn, event, target_attributes=attr, target=target)
                 except Exception as e:
@@ -115,7 +126,7 @@ class EventsProvider(EventsApi):
             LOG.debug("Adding new scheduled Events rule with cron schedule %s", cron)
 
             job_id = JobScheduler.instance().add_job(job_func, cron, enabled)
-            rule_scheduled_jobs = EventsBackend.get().rule_scheduled_jobs
+            rule_scheduled_jobs = EventsProvider.get_store().rule_scheduled_jobs
             rule_scheduled_jobs[name] = job_id
 
     def put_rule(
@@ -140,7 +151,7 @@ class EventsProvider(EventsApi):
         event_bus_name: EventBusNameOrArn = None,
         force: Boolean = None,
     ) -> None:
-        rule_scheduled_jobs = EventsBackend.get().rule_scheduled_jobs
+        rule_scheduled_jobs = self.get_store().rule_scheduled_jobs
         job_id = rule_scheduled_jobs.get(name)
         if job_id:
             LOG.debug("Removing scheduled Events: {} | job_id: {}".format(name, job_id))
@@ -150,7 +161,7 @@ class EventsProvider(EventsApi):
     def disable_rule(
         self, context: RequestContext, name: RuleName, event_bus_name: EventBusNameOrArn = None
     ) -> None:
-        rule_scheduled_jobs = EventsBackend.get().rule_scheduled_jobs
+        rule_scheduled_jobs = self.get_store().rule_scheduled_jobs
         job_id = rule_scheduled_jobs.get(name)
         if job_id:
             LOG.debug("Disabling Rule: {} | job_id: {}".format(name, job_id))
@@ -187,14 +198,6 @@ class EventsProvider(EventsApi):
             raise CommonServiceException(message=message, code="ValidationException")
 
         return call_moto(context)
-
-
-class EventsBackend(RegionBackend):
-    # maps rule name to job_id
-    rule_scheduled_jobs: Dict[str, str]
-
-    def __init__(self):
-        self.rule_scheduled_jobs = {}
 
 
 def _get_events_tmp_dir():
@@ -432,7 +435,10 @@ def process_events(event: Dict, targets: List[Dict]):
             changed_event = json.loads(target.get("Input"))
         try:
             send_event_to_target(
-                arn, changed_event, aws_stack.get_events_target_attributes(target), target=target
+                arn,
+                changed_event,
+                pick_attributes(target, ["$.SqsParameters", "$.KinesisParameters"]),
+                target=target,
             )
         except Exception as e:
             LOG.info(f"Unable to send event notification {truncate(event)} to target {target}: {e}")

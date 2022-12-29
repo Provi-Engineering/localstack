@@ -16,6 +16,7 @@ ActivationDescription = str
 ActivationId = str
 AgentErrorCode = str
 AggregatorSchemaOnly = bool
+AlarmName = str
 AllowedPattern = str
 ApplyOnlyAtCronInterval = bool
 ApproveAfterDays = int
@@ -189,6 +190,8 @@ OpsEntityItemCaptureTime = str
 OpsEntityItemKey = str
 OpsFilterKey = str
 OpsFilterValue = str
+OpsItemAccountId = str
+OpsItemArn = str
 OpsItemCategory = str
 OpsItemDataKey = str
 OpsItemDataValueString = str
@@ -274,6 +277,9 @@ PatchTitle = str
 PatchUnreportedNotApplicableCount = int
 PatchVendor = str
 PatchVersion = str
+Policy = str
+PolicyHash = str
+PolicyId = str
 Product = str
 PutInventoryMessage = str
 Region = str
@@ -282,6 +288,7 @@ RegistrationMetadataKey = str
 RegistrationMetadataValue = str
 RegistrationsCount = int
 RemainingCount = int
+ResourceArnString = str
 ResourceCount = int
 ResourceCountByStatus = str
 ResourceDataSyncAWSKMSKeyARN = str
@@ -299,6 +306,7 @@ ResourceDataSyncSourceType = str
 ResourceDataSyncState = str
 ResourceDataSyncType = str
 ResourceId = str
+ResourcePolicyMaxResults = int
 ResponseCode = int
 Reviewer = str
 S3BucketName = str
@@ -598,11 +606,18 @@ class DocumentType(str):
     Automation_ChangeTemplate = "Automation.ChangeTemplate"
     ProblemAnalysis = "ProblemAnalysis"
     ProblemAnalysisTemplate = "ProblemAnalysisTemplate"
+    CloudFormation = "CloudFormation"
+    ConformancePackTemplate = "ConformancePackTemplate"
 
 
 class ExecutionMode(str):
     Auto = "Auto"
     Interactive = "Interactive"
+
+
+class ExternalAlarmState(str):
+    UNKNOWN = "UNKNOWN"
+    ALARM = "ALARM"
 
 
 class Fault(str):
@@ -705,6 +720,7 @@ class OperatingSystem(str):
     WINDOWS = "WINDOWS"
     AMAZON_LINUX = "AMAZON_LINUX"
     AMAZON_LINUX_2 = "AMAZON_LINUX_2"
+    AMAZON_LINUX_2022 = "AMAZON_LINUX_2022"
     UBUNTU = "UBUNTU"
     REDHAT_ENTERPRISE_LINUX = "REDHAT_ENTERPRISE_LINUX"
     SUSE = "SUSE"
@@ -766,6 +782,7 @@ class OpsItemFilterKey(str):
     ChangeRequestByTemplate = "ChangeRequestByTemplate"
     ChangeRequestByTargetsResourceGroup = "ChangeRequestByTargetsResourceGroup"
     InsightByType = "InsightByType"
+    AccountId = "AccountId"
 
 
 class OpsItemFilterOperator(str):
@@ -933,6 +950,7 @@ class ResourceTypeForTagging(str):
     OpsItem = "OpsItem"
     OpsMetadata = "OpsMetadata"
     Automation = "Automation"
+    Association = "Association"
 
 
 class ReviewStatus(str):
@@ -997,7 +1015,6 @@ class AlreadyExistsException(ServiceException):
     code: str = "AlreadyExistsException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class AssociatedInstances(ServiceException):
@@ -1016,14 +1033,12 @@ class AssociationDoesNotExist(ServiceException):
     code: str = "AssociationDoesNotExist"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class AssociationExecutionDoesNotExist(ServiceException):
     code: str = "AssociationExecutionDoesNotExist"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class AssociationLimitExceeded(ServiceException):
@@ -1036,112 +1051,96 @@ class AssociationVersionLimitExceeded(ServiceException):
     code: str = "AssociationVersionLimitExceeded"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class AutomationDefinitionNotApprovedException(ServiceException):
     code: str = "AutomationDefinitionNotApprovedException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class AutomationDefinitionNotFoundException(ServiceException):
     code: str = "AutomationDefinitionNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class AutomationDefinitionVersionNotFoundException(ServiceException):
     code: str = "AutomationDefinitionVersionNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class AutomationExecutionLimitExceededException(ServiceException):
     code: str = "AutomationExecutionLimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class AutomationExecutionNotFoundException(ServiceException):
     code: str = "AutomationExecutionNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class AutomationStepNotFoundException(ServiceException):
     code: str = "AutomationStepNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class ComplianceTypeCountLimitExceededException(ServiceException):
     code: str = "ComplianceTypeCountLimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class CustomSchemaCountLimitExceededException(ServiceException):
     code: str = "CustomSchemaCountLimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class DocumentAlreadyExists(ServiceException):
     code: str = "DocumentAlreadyExists"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class DocumentLimitExceeded(ServiceException):
     code: str = "DocumentLimitExceeded"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class DocumentPermissionLimit(ServiceException):
     code: str = "DocumentPermissionLimit"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class DocumentVersionLimitExceeded(ServiceException):
     code: str = "DocumentVersionLimitExceeded"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class DoesNotExistException(ServiceException):
     code: str = "DoesNotExistException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class DuplicateDocumentContent(ServiceException):
     code: str = "DuplicateDocumentContent"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class DuplicateDocumentVersionName(ServiceException):
     code: str = "DuplicateDocumentVersionName"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class DuplicateInstanceId(ServiceException):
@@ -1154,105 +1153,90 @@ class FeatureNotAvailableException(ServiceException):
     code: str = "FeatureNotAvailableException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class HierarchyLevelLimitExceededException(ServiceException):
     code: str = "HierarchyLevelLimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class HierarchyTypeMismatchException(ServiceException):
     code: str = "HierarchyTypeMismatchException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class IdempotentParameterMismatch(ServiceException):
     code: str = "IdempotentParameterMismatch"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class IncompatiblePolicyException(ServiceException):
     code: str = "IncompatiblePolicyException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InternalServerError(ServiceException):
     code: str = "InternalServerError"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidActivation(ServiceException):
     code: str = "InvalidActivation"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidActivationId(ServiceException):
     code: str = "InvalidActivationId"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidAggregatorException(ServiceException):
     code: str = "InvalidAggregatorException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidAllowedPatternException(ServiceException):
     code: str = "InvalidAllowedPatternException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidAssociation(ServiceException):
     code: str = "InvalidAssociation"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidAssociationVersion(ServiceException):
     code: str = "InvalidAssociationVersion"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidAutomationExecutionParametersException(ServiceException):
     code: str = "InvalidAutomationExecutionParametersException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidAutomationSignalException(ServiceException):
     code: str = "InvalidAutomationSignalException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidAutomationStatusUpdateException(ServiceException):
     code: str = "InvalidAutomationStatusUpdateException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidCommandId(ServiceException):
@@ -1265,63 +1249,54 @@ class InvalidDeleteInventoryParametersException(ServiceException):
     code: str = "InvalidDeleteInventoryParametersException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidDeletionIdException(ServiceException):
     code: str = "InvalidDeletionIdException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidDocument(ServiceException):
     code: str = "InvalidDocument"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidDocumentContent(ServiceException):
     code: str = "InvalidDocumentContent"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidDocumentOperation(ServiceException):
     code: str = "InvalidDocumentOperation"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidDocumentSchemaVersion(ServiceException):
     code: str = "InvalidDocumentSchemaVersion"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidDocumentType(ServiceException):
     code: str = "InvalidDocumentType"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidDocumentVersion(ServiceException):
     code: str = "InvalidDocumentVersion"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidFilter(ServiceException):
     code: str = "InvalidFilter"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidFilterKey(ServiceException):
@@ -1334,49 +1309,42 @@ class InvalidFilterOption(ServiceException):
     code: str = "InvalidFilterOption"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidFilterValue(ServiceException):
     code: str = "InvalidFilterValue"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidInstanceId(ServiceException):
     code: str = "InvalidInstanceId"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidInstanceInformationFilterValue(ServiceException):
     code: str = "InvalidInstanceInformationFilterValue"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidInventoryGroupException(ServiceException):
     code: str = "InvalidInventoryGroupException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidInventoryItemContextException(ServiceException):
     code: str = "InvalidInventoryItemContextException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidInventoryRequestException(ServiceException):
     code: str = "InvalidInventoryRequestException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidItemContentException(ServiceException):
@@ -1384,35 +1352,30 @@ class InvalidItemContentException(ServiceException):
     sender_fault: bool = False
     status_code: int = 400
     TypeName: Optional[InventoryItemTypeName]
-    Message: Optional[String]
 
 
 class InvalidKeyId(ServiceException):
     code: str = "InvalidKeyId"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidNextToken(ServiceException):
     code: str = "InvalidNextToken"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidNotificationConfig(ServiceException):
     code: str = "InvalidNotificationConfig"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidOptionException(ServiceException):
     code: str = "InvalidOptionException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidOutputFolder(ServiceException):
@@ -1431,14 +1394,12 @@ class InvalidParameters(ServiceException):
     code: str = "InvalidParameters"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidPermissionType(ServiceException):
     code: str = "InvalidPermissionType"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidPluginName(ServiceException):
@@ -1451,14 +1412,12 @@ class InvalidPolicyAttributeException(ServiceException):
     code: str = "InvalidPolicyAttributeException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidPolicyTypeException(ServiceException):
     code: str = "InvalidPolicyTypeException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class InvalidResourceId(ServiceException):
@@ -1477,49 +1436,48 @@ class InvalidResultAttributeException(ServiceException):
     code: str = "InvalidResultAttributeException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidRole(ServiceException):
     code: str = "InvalidRole"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidSchedule(ServiceException):
     code: str = "InvalidSchedule"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
+
+
+class InvalidTag(ServiceException):
+    code: str = "InvalidTag"
+    sender_fault: bool = False
+    status_code: int = 400
 
 
 class InvalidTarget(ServiceException):
     code: str = "InvalidTarget"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidTargetMaps(ServiceException):
     code: str = "InvalidTargetMaps"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidTypeNameException(ServiceException):
     code: str = "InvalidTypeNameException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvalidUpdate(ServiceException):
     code: str = "InvalidUpdate"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class InvocationDoesNotExist(ServiceException):
@@ -1533,7 +1491,6 @@ class ItemContentMismatchException(ServiceException):
     sender_fault: bool = False
     status_code: int = 400
     TypeName: Optional[InventoryItemTypeName]
-    Message: Optional[String]
 
 
 class ItemSizeLimitExceededException(ServiceException):
@@ -1541,21 +1498,24 @@ class ItemSizeLimitExceededException(ServiceException):
     sender_fault: bool = False
     status_code: int = 400
     TypeName: Optional[InventoryItemTypeName]
-    Message: Optional[String]
 
 
 class MaxDocumentSizeExceeded(ServiceException):
     code: str = "MaxDocumentSizeExceeded"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
+
+
+class OpsItemAccessDeniedException(ServiceException):
+    code: str = "OpsItemAccessDeniedException"
+    sender_fault: bool = False
+    status_code: int = 400
 
 
 class OpsItemAlreadyExistsException(ServiceException):
     code: str = "OpsItemAlreadyExistsException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
     OpsItemId: Optional[String]
 
 
@@ -1567,7 +1527,6 @@ class OpsItemInvalidParameterException(ServiceException):
     sender_fault: bool = False
     status_code: int = 400
     ParameterNames: Optional[OpsItemParameterNamesList]
-    Message: Optional[String]
 
 
 class OpsItemLimitExceededException(ServiceException):
@@ -1577,21 +1536,18 @@ class OpsItemLimitExceededException(ServiceException):
     ResourceTypes: Optional[OpsItemParameterNamesList]
     Limit: Optional[Integer]
     LimitType: Optional[String]
-    Message: Optional[String]
 
 
 class OpsItemNotFoundException(ServiceException):
     code: str = "OpsItemNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class OpsItemRelatedItemAlreadyExistsException(ServiceException):
     code: str = "OpsItemRelatedItemAlreadyExistsException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
     ResourceUri: Optional[OpsItemRelatedItemAssociationResourceUri]
     OpsItemId: Optional[OpsItemId]
 
@@ -1600,105 +1556,90 @@ class OpsItemRelatedItemAssociationNotFoundException(ServiceException):
     code: str = "OpsItemRelatedItemAssociationNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class OpsMetadataAlreadyExistsException(ServiceException):
     code: str = "OpsMetadataAlreadyExistsException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class OpsMetadataInvalidArgumentException(ServiceException):
     code: str = "OpsMetadataInvalidArgumentException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class OpsMetadataKeyLimitExceededException(ServiceException):
     code: str = "OpsMetadataKeyLimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class OpsMetadataLimitExceededException(ServiceException):
     code: str = "OpsMetadataLimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class OpsMetadataNotFoundException(ServiceException):
     code: str = "OpsMetadataNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class OpsMetadataTooManyUpdatesException(ServiceException):
     code: str = "OpsMetadataTooManyUpdatesException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ParameterAlreadyExists(ServiceException):
     code: str = "ParameterAlreadyExists"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ParameterLimitExceeded(ServiceException):
     code: str = "ParameterLimitExceeded"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ParameterMaxVersionLimitExceeded(ServiceException):
     code: str = "ParameterMaxVersionLimitExceeded"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ParameterNotFound(ServiceException):
     code: str = "ParameterNotFound"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ParameterPatternMismatchException(ServiceException):
     code: str = "ParameterPatternMismatchException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ParameterVersionLabelLimitExceeded(ServiceException):
     code: str = "ParameterVersionLabelLimitExceeded"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ParameterVersionNotFound(ServiceException):
     code: str = "ParameterVersionNotFound"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class PoliciesLimitExceededException(ServiceException):
     code: str = "PoliciesLimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class ResourceDataSyncAlreadyExistsException(ServiceException):
@@ -1712,21 +1653,18 @@ class ResourceDataSyncConflictException(ServiceException):
     code: str = "ResourceDataSyncConflictException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class ResourceDataSyncCountExceededException(ServiceException):
     code: str = "ResourceDataSyncCountExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class ResourceDataSyncInvalidConfigurationException(ServiceException):
     code: str = "ResourceDataSyncInvalidConfigurationException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class ResourceDataSyncNotFoundException(ServiceException):
@@ -1735,28 +1673,48 @@ class ResourceDataSyncNotFoundException(ServiceException):
     status_code: int = 400
     SyncName: Optional[ResourceDataSyncName]
     SyncType: Optional[ResourceDataSyncType]
-    Message: Optional[String]
 
 
 class ResourceInUseException(ServiceException):
     code: str = "ResourceInUseException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class ResourceLimitExceededException(ServiceException):
     code: str = "ResourceLimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
+
+
+class ResourcePolicyConflictException(ServiceException):
+    code: str = "ResourcePolicyConflictException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+ResourcePolicyParameterNamesList = List[String]
+
+
+class ResourcePolicyInvalidParameterException(ServiceException):
+    code: str = "ResourcePolicyInvalidParameterException"
+    sender_fault: bool = False
+    status_code: int = 400
+    ParameterNames: Optional[ResourcePolicyParameterNamesList]
+
+
+class ResourcePolicyLimitExceededException(ServiceException):
+    code: str = "ResourcePolicyLimitExceededException"
+    sender_fault: bool = False
+    status_code: int = 400
+    Limit: Optional[Integer]
+    LimitType: Optional[String]
 
 
 class ServiceSettingNotFound(ServiceException):
     code: str = "ServiceSettingNotFound"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class StatusUnchanged(ServiceException):
@@ -1769,21 +1727,18 @@ class SubTypeCountLimitExceededException(ServiceException):
     code: str = "SubTypeCountLimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class TargetInUseException(ServiceException):
     code: str = "TargetInUseException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class TargetNotConnected(ServiceException):
     code: str = "TargetNotConnected"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class TooManyTagsError(ServiceException):
@@ -1796,28 +1751,24 @@ class TooManyUpdates(ServiceException):
     code: str = "TooManyUpdates"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class TotalSizeLimitExceededException(ServiceException):
     code: str = "TotalSizeLimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class UnsupportedCalendarException(ServiceException):
     code: str = "UnsupportedCalendarException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class UnsupportedFeatureRequiredException(ServiceException):
     code: str = "UnsupportedFeatureRequiredException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class UnsupportedInventoryItemContextException(ServiceException):
@@ -1825,35 +1776,30 @@ class UnsupportedInventoryItemContextException(ServiceException):
     sender_fault: bool = False
     status_code: int = 400
     TypeName: Optional[InventoryItemTypeName]
-    Message: Optional[String]
 
 
 class UnsupportedInventorySchemaVersionException(ServiceException):
     code: str = "UnsupportedInventorySchemaVersionException"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class UnsupportedOperatingSystem(ServiceException):
     code: str = "UnsupportedOperatingSystem"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 class UnsupportedParameterType(ServiceException):
     code: str = "UnsupportedParameterType"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[String]
 
 
 class UnsupportedPlatformType(ServiceException):
     code: str = "UnsupportedPlatformType"
     sender_fault: bool = False
     status_code: int = 400
-    Message: Optional[String]
 
 
 AccountIdList = List[AccountId]
@@ -1902,6 +1848,26 @@ class AddTagsToResourceRequest(ServiceRequest):
 
 class AddTagsToResourceResult(TypedDict, total=False):
     pass
+
+
+class Alarm(TypedDict, total=False):
+    Name: AlarmName
+
+
+AlarmList = List[Alarm]
+
+
+class AlarmConfiguration(TypedDict, total=False):
+    IgnorePollAlarmFailure: Optional[Boolean]
+    Alarms: AlarmList
+
+
+class AlarmStateInformation(TypedDict, total=False):
+    Name: AlarmName
+    State: ExternalAlarmState
+
+
+AlarmStateInformationList = List[AlarmStateInformation]
 
 
 class AssociateOpsItemRelatedItemRequest(ServiceRequest):
@@ -1963,6 +1929,7 @@ class TargetLocation(TypedDict, total=False):
     TargetLocationMaxConcurrency: Optional[MaxConcurrency]
     TargetLocationMaxErrors: Optional[MaxErrors]
     ExecutionRoleName: Optional[ExecutionRoleName]
+    TargetLocationAlarmConfiguration: Optional[AlarmConfiguration]
 
 
 TargetLocations = List[TargetLocation]
@@ -2017,6 +1984,8 @@ class AssociationDescription(TypedDict, total=False):
     TargetLocations: Optional[TargetLocations]
     ScheduleOffset: Optional[ScheduleOffset]
     TargetMaps: Optional[TargetMaps]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 AssociationDescriptionList = List[AssociationDescription]
@@ -2031,6 +2000,8 @@ class AssociationExecution(TypedDict, total=False):
     CreatedTime: Optional[DateTime]
     LastExecutionDate: Optional[DateTime]
     ResourceCountByStatus: Optional[ResourceCountByStatus]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 class AssociationExecutionFilter(TypedDict, total=False):
@@ -2202,6 +2173,7 @@ class StepExecution(TypedDict, total=False):
     ValidNextSteps: Optional[ValidNextStepList]
     Targets: Optional[Targets]
     TargetLocation: Optional[TargetLocation]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 StepExecutionList = List[StepExecution]
@@ -2233,6 +2205,8 @@ class AutomationExecution(TypedDict, total=False):
     Target: Optional[String]
     TargetLocations: Optional[TargetLocations]
     ProgressCounters: Optional[ProgressCounters]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
     AutomationSubtype: Optional[AutomationSubtype]
     ScheduledTime: Optional[DateTime]
     Runbooks: Optional[Runbooks]
@@ -2275,6 +2249,8 @@ class AutomationExecutionMetadata(TypedDict, total=False):
     MaxErrors: Optional[MaxErrors]
     Target: Optional[String]
     AutomationType: Optional[AutomationType]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
     AutomationSubtype: Optional[AutomationSubtype]
     ScheduledTime: Optional[DateTime]
     Runbooks: Optional[Runbooks]
@@ -2400,6 +2376,8 @@ class Command(TypedDict, total=False):
     NotificationConfig: Optional[NotificationConfig]
     CloudWatchOutputConfig: Optional[CloudWatchOutputConfig]
     TimeoutSeconds: Optional[TimeoutSeconds]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 class CommandFilter(TypedDict, total=False):
@@ -2566,6 +2544,7 @@ class CreateAssociationBatchRequestEntry(TypedDict, total=False):
     TargetLocations: Optional[TargetLocations]
     ScheduleOffset: Optional[ScheduleOffset]
     TargetMaps: Optional[TargetMaps]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 CreateAssociationBatchRequestEntries = List[CreateAssociationBatchRequestEntry]
@@ -2608,6 +2587,8 @@ class CreateAssociationRequest(ServiceRequest):
     TargetLocations: Optional[TargetLocations]
     ScheduleOffset: Optional[ScheduleOffset]
     TargetMaps: Optional[TargetMaps]
+    Tags: Optional[TagList]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class CreateAssociationResult(TypedDict, total=False):
@@ -2749,10 +2730,12 @@ class CreateOpsItemRequest(ServiceRequest):
     ActualEndTime: Optional[DateTime]
     PlannedStartTime: Optional[DateTime]
     PlannedEndTime: Optional[DateTime]
+    AccountId: Optional[OpsItemAccountId]
 
 
 class CreateOpsItemResponse(TypedDict, total=False):
     OpsItemId: Optional[String]
+    OpsItemArn: Optional[OpsItemArn]
 
 
 class MetadataValue(TypedDict, total=False):
@@ -2946,6 +2929,16 @@ class DeleteResourceDataSyncRequest(ServiceRequest):
 
 
 class DeleteResourceDataSyncResult(TypedDict, total=False):
+    pass
+
+
+class DeleteResourcePolicyRequest(ServiceRequest):
+    ResourceArn: ResourceArnString
+    PolicyId: PolicyId
+    PolicyHash: PolicyHash
+
+
+class DeleteResourcePolicyResponse(TypedDict, total=False):
     pass
 
 
@@ -3490,6 +3483,8 @@ class MaintenanceWindowExecutionTaskIdentity(TypedDict, total=False):
     EndTime: Optional[DateTime]
     TaskArn: Optional[MaintenanceWindowTaskArn]
     TaskType: Optional[MaintenanceWindowTaskType]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 MaintenanceWindowExecutionTaskIdentityList = List[MaintenanceWindowExecutionTaskIdentity]
@@ -3612,6 +3607,7 @@ class MaintenanceWindowTask(TypedDict, total=False):
     Name: Optional[MaintenanceWindowName]
     Description: Optional[MaintenanceWindowDescription]
     CutoffBehavior: Optional[MaintenanceWindowTaskCutoffBehavior]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 MaintenanceWindowTaskList = List[MaintenanceWindowTask]
@@ -4250,6 +4246,8 @@ class GetMaintenanceWindowExecutionTaskResult(TypedDict, total=False):
     StatusDetails: Optional[MaintenanceWindowExecutionStatusDetails]
     StartTime: Optional[DateTime]
     EndTime: Optional[DateTime]
+    AlarmConfiguration: Optional[AlarmConfiguration]
+    TriggeredAlarms: Optional[AlarmStateInformationList]
 
 
 class GetMaintenanceWindowRequest(ServiceRequest):
@@ -4335,10 +4333,12 @@ class GetMaintenanceWindowTaskResult(TypedDict, total=False):
     Name: Optional[MaintenanceWindowName]
     Description: Optional[MaintenanceWindowDescription]
     CutoffBehavior: Optional[MaintenanceWindowTaskCutoffBehavior]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class GetOpsItemRequest(ServiceRequest):
     OpsItemId: OpsItemId
+    OpsItemArn: Optional[OpsItemArn]
 
 
 class OpsItem(TypedDict, total=False):
@@ -4363,6 +4363,7 @@ class OpsItem(TypedDict, total=False):
     ActualEndTime: Optional[DateTime]
     PlannedStartTime: Optional[DateTime]
     PlannedEndTime: Optional[DateTime]
+    OpsItemArn: Optional[OpsItemArn]
 
 
 class GetOpsItemResponse(TypedDict, total=False):
@@ -4559,6 +4560,26 @@ class GetPatchBaselineResult(TypedDict, total=False):
     ModifiedDate: Optional[DateTime]
     Description: Optional[BaselineDescription]
     Sources: Optional[PatchSourceList]
+
+
+class GetResourcePoliciesRequest(ServiceRequest):
+    ResourceArn: ResourceArnString
+    NextToken: Optional[String]
+    MaxResults: Optional[ResourcePolicyMaxResults]
+
+
+class GetResourcePoliciesResponseEntry(TypedDict, total=False):
+    PolicyId: Optional[PolicyId]
+    PolicyHash: Optional[PolicyHash]
+    Policy: Optional[Policy]
+
+
+GetResourcePoliciesResponseEntries = List[GetResourcePoliciesResponseEntry]
+
+
+class GetResourcePoliciesResponse(TypedDict, total=False):
+    NextToken: Optional[String]
+    Policies: Optional[GetResourcePoliciesResponseEntries]
 
 
 class GetServiceSettingRequest(ServiceRequest):
@@ -4984,6 +5005,18 @@ class PutParameterResult(TypedDict, total=False):
     Tier: Optional[ParameterTier]
 
 
+class PutResourcePolicyRequest(ServiceRequest):
+    ResourceArn: ResourceArnString
+    Policy: Policy
+    PolicyId: Optional[PolicyId]
+    PolicyHash: Optional[PolicyHash]
+
+
+class PutResourcePolicyResponse(TypedDict, total=False):
+    PolicyId: Optional[PolicyId]
+    PolicyHash: Optional[PolicyHash]
+
+
 class RegisterDefaultPatchBaselineRequest(ServiceRequest):
     BaselineId: BaselineId
 
@@ -5032,6 +5065,7 @@ class RegisterTaskWithMaintenanceWindowRequest(ServiceRequest):
     Description: Optional[MaintenanceWindowDescription]
     ClientToken: Optional[ClientToken]
     CutoffBehavior: Optional[MaintenanceWindowTaskCutoffBehavior]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class RegisterTaskWithMaintenanceWindowResult(TypedDict, total=False):
@@ -5094,6 +5128,7 @@ class SendCommandRequest(ServiceRequest):
     ServiceRoleArn: Optional[ServiceRole]
     NotificationConfig: Optional[NotificationConfig]
     CloudWatchOutputConfig: Optional[CloudWatchOutputConfig]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class SendCommandResult(TypedDict, total=False):
@@ -5125,6 +5160,7 @@ class StartAutomationExecutionRequest(ServiceRequest):
     MaxErrors: Optional[MaxErrors]
     TargetLocations: Optional[TargetLocations]
     Tags: Optional[TagList]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class StartAutomationExecutionResult(TypedDict, total=False):
@@ -5210,6 +5246,7 @@ class UpdateAssociationRequest(ServiceRequest):
     TargetLocations: Optional[TargetLocations]
     ScheduleOffset: Optional[ScheduleOffset]
     TargetMaps: Optional[TargetMaps]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class UpdateAssociationResult(TypedDict, total=False):
@@ -5326,6 +5363,7 @@ class UpdateMaintenanceWindowTaskRequest(ServiceRequest):
     Description: Optional[MaintenanceWindowDescription]
     Replace: Optional[Boolean]
     CutoffBehavior: Optional[MaintenanceWindowTaskCutoffBehavior]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class UpdateMaintenanceWindowTaskResult(TypedDict, total=False):
@@ -5343,6 +5381,7 @@ class UpdateMaintenanceWindowTaskResult(TypedDict, total=False):
     Name: Optional[MaintenanceWindowName]
     Description: Optional[MaintenanceWindowDescription]
     CutoffBehavior: Optional[MaintenanceWindowTaskCutoffBehavior]
+    AlarmConfiguration: Optional[AlarmConfiguration]
 
 
 class UpdateManagedInstanceRoleRequest(ServiceRequest):
@@ -5370,6 +5409,7 @@ class UpdateOpsItemRequest(ServiceRequest):
     ActualEndTime: Optional[DateTime]
     PlannedStartTime: Optional[DateTime]
     PlannedEndTime: Optional[DateTime]
+    OpsItemArn: Optional[OpsItemArn]
 
 
 class UpdateOpsItemResponse(TypedDict, total=False):
@@ -5511,6 +5551,8 @@ class SsmApi:
         target_locations: TargetLocations = None,
         schedule_offset: ScheduleOffset = None,
         target_maps: TargetMaps = None,
+        tags: TagList = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> CreateAssociationResult:
         raise NotImplementedError
 
@@ -5575,6 +5617,7 @@ class SsmApi:
         actual_end_time: DateTime = None,
         planned_start_time: DateTime = None,
         planned_end_time: DateTime = None,
+        account_id: OpsItemAccountId = None,
     ) -> CreateOpsItemResponse:
         raise NotImplementedError
 
@@ -5694,6 +5737,16 @@ class SsmApi:
         sync_name: ResourceDataSyncName,
         sync_type: ResourceDataSyncType = None,
     ) -> DeleteResourceDataSyncResult:
+        raise NotImplementedError
+
+    @handler("DeleteResourcePolicy")
+    def delete_resource_policy(
+        self,
+        context: RequestContext,
+        resource_arn: ResourceArnString,
+        policy_id: PolicyId,
+        policy_hash: PolicyHash,
+    ) -> DeleteResourcePolicyResponse:
         raise NotImplementedError
 
     @handler("DeregisterManagedInstance")
@@ -6199,7 +6252,9 @@ class SsmApi:
         raise NotImplementedError
 
     @handler("GetOpsItem")
-    def get_ops_item(self, context: RequestContext, ops_item_id: OpsItemId) -> GetOpsItemResponse:
+    def get_ops_item(
+        self, context: RequestContext, ops_item_id: OpsItemId, ops_item_arn: OpsItemArn = None
+    ) -> GetOpsItemResponse:
         raise NotImplementedError
 
     @handler("GetOpsMetadata")
@@ -6274,6 +6329,16 @@ class SsmApi:
         patch_group: PatchGroup,
         operating_system: OperatingSystem = None,
     ) -> GetPatchBaselineForPatchGroupResult:
+        raise NotImplementedError
+
+    @handler("GetResourcePolicies")
+    def get_resource_policies(
+        self,
+        context: RequestContext,
+        resource_arn: ResourceArnString,
+        next_token: String = None,
+        max_results: ResourcePolicyMaxResults = None,
+    ) -> GetResourcePoliciesResponse:
         raise NotImplementedError
 
     @handler("GetServiceSetting")
@@ -6502,6 +6567,17 @@ class SsmApi:
     ) -> PutParameterResult:
         raise NotImplementedError
 
+    @handler("PutResourcePolicy")
+    def put_resource_policy(
+        self,
+        context: RequestContext,
+        resource_arn: ResourceArnString,
+        policy: Policy,
+        policy_id: PolicyId = None,
+        policy_hash: PolicyHash = None,
+    ) -> PutResourcePolicyResponse:
+        raise NotImplementedError
+
     @handler("RegisterDefaultPatchBaseline")
     def register_default_patch_baseline(
         self, context: RequestContext, baseline_id: BaselineId
@@ -6547,6 +6623,7 @@ class SsmApi:
         description: MaintenanceWindowDescription = None,
         client_token: ClientToken = None,
         cutoff_behavior: MaintenanceWindowTaskCutoffBehavior = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> RegisterTaskWithMaintenanceWindowResult:
         raise NotImplementedError
 
@@ -6603,6 +6680,7 @@ class SsmApi:
         service_role_arn: ServiceRole = None,
         notification_config: NotificationConfig = None,
         cloud_watch_output_config: CloudWatchOutputConfig = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> SendCommandResult:
         raise NotImplementedError
 
@@ -6628,6 +6706,7 @@ class SsmApi:
         max_errors: MaxErrors = None,
         target_locations: TargetLocations = None,
         tags: TagList = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> StartAutomationExecutionResult:
         raise NotImplementedError
 
@@ -6705,6 +6784,7 @@ class SsmApi:
         target_locations: TargetLocations = None,
         schedule_offset: ScheduleOffset = None,
         target_maps: TargetMaps = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> UpdateAssociationResult:
         raise NotImplementedError
 
@@ -6802,6 +6882,7 @@ class SsmApi:
         description: MaintenanceWindowDescription = None,
         replace: Boolean = None,
         cutoff_behavior: MaintenanceWindowTaskCutoffBehavior = None,
+        alarm_configuration: AlarmConfiguration = None,
     ) -> UpdateMaintenanceWindowTaskResult:
         raise NotImplementedError
 
@@ -6830,6 +6911,7 @@ class SsmApi:
         actual_end_time: DateTime = None,
         planned_start_time: DateTime = None,
         planned_end_time: DateTime = None,
+        ops_item_arn: OpsItemArn = None,
     ) -> UpdateOpsItemResponse:
         raise NotImplementedError
 

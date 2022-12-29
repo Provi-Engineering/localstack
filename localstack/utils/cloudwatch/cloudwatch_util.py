@@ -6,9 +6,7 @@ from typing import Optional
 from flask import Response
 
 from localstack import config
-from localstack.utils.analytics import event_publisher
 from localstack.utils.aws import aws_stack
-from localstack.utils.bootstrap import is_api_enabled
 from localstack.utils.strings import to_str
 from localstack.utils.time import now_utc
 
@@ -46,6 +44,36 @@ def publish_lambda_metric(metric, value, kwargs):
         LOG.info('Unable to put metric data for metric "%s" to CloudWatch: %s', metric, e)
 
 
+def publish_sqs_metric(
+    region: str, queue_name: str, metric: str, value: float = 1, unit: str = "Count"
+):
+    """
+    Publishes the metrics for SQS to CloudWatch using the namespace "AWS/SQS"
+    See also: https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-available-cloudwatch-metrics.html
+    :param region The region that should be used for CloudWatch
+    :param queue_name The name of the queue
+    :param metric The metric name to be used
+    :param value The value of the metric data, default: 1
+    :param unit The unit of the metric data, default: "Count"
+    """
+    cw_client = aws_stack.connect_to_service("cloudwatch", region_name=region)
+    try:
+        cw_client.put_metric_data(
+            Namespace="AWS/SQS",
+            MetricData=[
+                {
+                    "MetricName": metric,
+                    "Dimensions": [{"Name": "QueueName", "Value": queue_name}],
+                    "Unit": unit,
+                    "Timestamp": datetime.utcnow().replace(tzinfo=timezone.utc),
+                    "Value": value,
+                }
+            ],
+        )
+    except Exception as e:
+        LOG.info(f'Unable to put metric data for metric "{metric}" to CloudWatch: {e}')
+
+
 def publish_lambda_duration(time_before, kwargs):
     time_after = now_utc()
     publish_lambda_metric("Duration", time_after - time_before, kwargs)
@@ -69,8 +97,6 @@ def store_cloudwatch_logs(
     start_time=None,
     auto_create_group: Optional[bool] = True,
 ):
-    if not is_api_enabled("logs"):
-        return
     start_time = start_time or int(time.time() * 1000)
     logs_client = aws_stack.connect_to_service("logs")
     log_output = to_str(log_output)
@@ -129,21 +155,9 @@ def _func_name(kwargs):
     return func_name
 
 
-def publish_event(time_before, result, kwargs):
-    event_publisher.fire_event(
-        event_publisher.EVENT_LAMBDA_INVOKE_FUNC,
-        payload={
-            "f": event_publisher.get_hash(_func_name(kwargs)),
-            "d": now_utc() - time_before,
-            "r": result[0],
-        },
-    )
-
-
 def publish_result(ns, time_before, result, kwargs):
     if ns == "lambda":
         publish_lambda_result(time_before, result, kwargs)
-        publish_event(time_before, "success", kwargs)
     else:
         LOG.info("Unexpected CloudWatch namespace: %s", ns)
 
@@ -151,7 +165,6 @@ def publish_result(ns, time_before, result, kwargs):
 def publish_error(ns, time_before, e, kwargs):
     if ns == "lambda":
         publish_lambda_error(time_before, kwargs)
-        publish_event(time_before, "error", kwargs)
     else:
         LOG.info("Unexpected CloudWatch namespace: %s", ns)
 

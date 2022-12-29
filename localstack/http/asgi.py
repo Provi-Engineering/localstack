@@ -73,18 +73,10 @@ def populate_wsgi_environment(environ: "WSGIEnvironment", scope: "HTTPScope"):
     environ["wsgi.multiprocess"] = False
     environ["wsgi.run_once"] = False
 
-    # asgi.headers: a custom key to allow downstream applications to circumvent WSGI header processing. we try to map
-    # asgi.headers to a List[Tuple[byte, byte]]. in our case the headers typically come from hypercorn which uses
-    # h11/h2 as protocol library. in the case of h2, the headers will be simply a List[Tuple[byte, byte]],
-    # and in the case of h11, it will be a Headers object that we can extract the list of raw headers from.
+    # asgi.headers: a custom key to allow downstream applications to circumvent WSGI header processing. these headers
+    # should preserve the original casing as the client sends them.
     headers = scope.get("headers")
     environ["asgi.headers"] = headers
-    if not isinstance(headers, list):
-        try:
-            # these are h11 headers from which we extract the raw list
-            environ["asgi.headers"] = headers.raw_items()
-        except AttributeError:
-            environ["asgi.headers"] = headers
 
 
 async def to_async_generator(
@@ -379,11 +371,20 @@ class ASGIAdapter:
     ):
         env = self.to_wsgi_environment(scope, receive)
 
-        response = WsgiStartResponse(send, self.event_loop)
+        try:
+            response = WsgiStartResponse(send, self.event_loop)
 
-        iterable = await self.event_loop.run_in_executor(
-            self.executor, self.wsgi_app, env, response
-        )
+            iterable = await self.event_loop.run_in_executor(
+                self.executor, self.wsgi_app, env, response
+            )
+        except Exception as e:
+            LOG.error(
+                "Error while trying to schedule execution: %s with environment %s",
+                e,
+                env,
+                exc_info=LOG.isEnabledFor(logging.DEBUG),
+            )
+            raise
 
         try:
             if iterable:
@@ -399,3 +400,30 @@ class ASGIAdapter:
                         await response.write(packet)
         finally:
             await response.close()
+
+
+def patch_werkzeug():
+    from werkzeug.wsgi import LimitedStream
+
+    from localstack.utils.patch import patch
+
+    @patch(LimitedStream.read, pass_target=False)
+    def _read(self, size: t.Optional[int] = None):
+        # FIXME: This is a bandaid for https://github.com/pallets/werkzeug/issues/2558 and should be removed once the
+        #  issue is fixed
+        if self._pos >= self.limit:
+            return self.on_exhausted()
+        if size is None or size == -1:
+            size = self.limit
+        to_read = min(self.limit - self._pos, size)
+        try:
+            read = self._read(to_read)
+        except (OSError, ValueError):
+            return self.on_disconnect()
+        if to_read and not len(read):  # this line is affected by the original code
+            return self.on_disconnect()
+        self._pos += len(read)
+        return read
+
+
+patch_werkzeug()

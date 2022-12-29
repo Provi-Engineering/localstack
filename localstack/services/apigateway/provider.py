@@ -1,7 +1,7 @@
 import json
 import logging
-import re
 from copy import deepcopy
+from typing import IO
 
 from localstack.aws.api import RequestContext, ServiceRequest, handler
 from localstack.aws.api.apigateway import (
@@ -35,30 +35,25 @@ from localstack.aws.api.apigateway import (
     RestApi,
     String,
     Tags,
+    TestInvokeMethodRequest,
+    TestInvokeMethodResponse,
     VpcLink,
     VpcLinks,
 )
 from localstack.aws.forwarder import create_aws_request_context
-from localstack.aws.proxy import AwsApiListener
-from localstack.constants import APPLICATION_JSON, HEADER_LOCALSTACK_EDGE_URL
-from localstack.services.apigateway import helpers
-from localstack.services.apigateway.context import ApiInvocationContext
+from localstack.constants import APPLICATION_JSON
 from localstack.services.apigateway.helpers import (
-    API_REGIONS,
-    PATH_REGEX_TEST_INVOKE_API,
-    PATH_REGEX_USER_REQUEST,
-    APIGatewayRegion,
     OpenApiExporter,
     apply_json_patch_safe,
     find_api_subentity_by_id,
+    get_apigateway_store,
 )
 from localstack.services.apigateway.invocations import invoke_rest_api_from_request
 from localstack.services.apigateway.patches import apply_patches
+from localstack.services.apigateway.router_asf import ApigatewayRouter, to_invocation_context
+from localstack.services.edge import ROUTER
 from localstack.services.moto import call_moto
 from localstack.services.plugins import ServiceLifecycleHook
-from localstack.utils.analytics import event_publisher
-from localstack.utils.aws import aws_stack
-from localstack.utils.aws.aws_responses import requests_response
 from localstack.utils.collections import PaginatedList, ensure_list
 from localstack.utils.json import parse_json_or_yaml
 from localstack.utils.strings import short_uid, str_to_bool, to_str
@@ -67,72 +62,53 @@ from localstack.utils.time import now_utc
 LOG = logging.getLogger(__name__)
 
 
-class ApigatewayApiListener(AwsApiListener):
-    """Custom API listener that handles both, API Gateway API calls (managing the
-    state/metadata of the service) and invocations (invoking a user-created API)."""
+class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
+    router: ApigatewayRouter
 
-    def forward_request(self, method, path, data, headers):
-        invocation_context = ApiInvocationContext(method, path, data, headers)
+    def __init__(self, router: ApigatewayRouter = None):
+        self.router = router or ApigatewayRouter(ROUTER)
 
-        forwarded_for = headers.get(HEADER_LOCALSTACK_EDGE_URL, "")
-        if re.match(PATH_REGEX_USER_REQUEST, path) or "execute-api" in forwarded_for:
-            result = invoke_rest_api_from_request(invocation_context)
-            if result is not None:
-                return result
+    def on_after_init(self):
+        apply_patches()
+        self.router.register_routes()
 
-        if helpers.is_test_invoke_method(method, path):
-            return self._handle_test_invoke_method(invocation_context)
-        return super().forward_request(method, path, data, headers)
+    @handler("TestInvokeMethod", expand=False)
+    def test_invoke_method(
+        self, context: RequestContext, request: TestInvokeMethodRequest
+    ) -> TestInvokeMethodResponse:
 
-    def _handle_test_invoke_method(self, invocation_context):
-        # if call is from test_invoke_api then use http_method to find the integration,
-        #   as test_invoke_api makes a POST call to request the test invocation
-        match = re.match(PATH_REGEX_TEST_INVOKE_API, invocation_context.path)
-        invocation_context.method = match[3]
+        invocation_context = to_invocation_context(context.request)
+        invocation_context.method = request["httpMethod"]
+
         if data := parse_json_or_yaml(to_str(invocation_context.data or b"")):
             orig_data = data
-            if path_with_query_string := orig_data.get("pathWithQueryString", None):
+            if path_with_query_string := orig_data.get("pathWithQueryString"):
                 invocation_context.path_with_query_string = path_with_query_string
             invocation_context.data = data.get("body")
             invocation_context.headers = orig_data.get("headers", {})
+
         result = invoke_rest_api_from_request(invocation_context)
-        result = {
-            "status": result.status_code,
-            "body": to_str(result.content),
-            "headers": dict(result.headers),
-        }
-        return result
 
-    def return_response(self, method, path, data, headers, response):
-        # TODO: clean up logic below!
+        # TODO: implement the other TestInvokeMethodResponse parameters
+        #   * multiValueHeaders: Optional[MapOfStringToList]
+        #   * log: Optional[String]
+        #   * latency: Optional[Long]
 
-        # fix backend issue (missing support for API documentation)
-        if (
-            re.match(r"/restapis/[^/]+/documentation/versions", path)
-            and response.status_code == 404
-        ):
-            return requests_response({"position": "1", "items": []})
-
-        # keep track of API regions for faster lookup later on
-        # TODO - to be removed - see comment for API_REGIONS variable
-        if method == "POST" and path == "/restapis":
-            content = json.loads(to_str(response.content))
-            api_id = content["id"]
-            region = aws_stack.extract_region_from_auth_header(headers)
-            API_REGIONS[api_id] = region
-
-
-class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
-    def on_after_init(self):
-        apply_patches()
+        return TestInvokeMethodResponse(
+            status=result.status_code,
+            headers=dict(result.headers),
+            body=to_str(result.content),
+        )
 
     @handler("CreateRestApi", expand=False)
     def create_rest_api(self, context: RequestContext, request: CreateRestApiRequest) -> RestApi:
         result = call_moto(context)
-        event_publisher.fire_event(
-            event_publisher.EVENT_APIGW_CREATE_API,
-            payload={"a": event_publisher.get_hash(result["id"])},
-        )
+        if not result.get("binaryMediaTypes"):
+            result.pop("binaryMediaTypes")
+        if not result.get("tags"):
+            result.pop("tags")
+        if result.get("version") == "V1":
+            result.pop("version")
         return result
 
     def delete_rest_api(self, context: RequestContext, rest_api_id: String) -> None:
@@ -144,18 +120,13 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
                 f"Invalid API identifier specified {context.account_id}:{rest_api_id}"
             ) from e
 
-        event_publisher.fire_event(
-            event_publisher.EVENT_APIGW_DELETE_API,
-            payload={"a": event_publisher.get_hash(rest_api_id)},
-        )
-
     # authorizers
 
     @handler("CreateAuthorizer", expand=False)
     def create_authorizer(
         self, context: RequestContext, request: CreateAuthorizerRequest
     ) -> Authorizer:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         api_id = request["restApiId"]
         authorizer_id = short_uid()[:6]  # length 6 to make TF tests pass
@@ -176,7 +147,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         limit: NullableInteger = None,
     ) -> Authorizers:
         # TODO add paging
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         auth_list = region_details.authorizers.get(rest_api_id) or []
 
@@ -194,7 +165,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def delete_authorizer(
         self, context: RequestContext, rest_api_id: String, authorizer_id: String
     ) -> None:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         auth_list = region_details.authorizers.get(rest_api_id, [])
         for i in range(len(auth_list)):
@@ -209,7 +180,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         authorizer_id: String,
         patch_operations: ListOfPatchOperation = None,
     ) -> Authorizer:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         authorizer = find_api_subentity_by_id(rest_api_id, authorizer_id, "authorizers")
         if authorizer is None:
@@ -232,14 +203,14 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         self,
         context: RequestContext,
     ) -> Account:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         result = to_account_response_json(region_details.account)
         return Account(**result)
 
     def update_account(
         self, context: RequestContext, patch_operations: ListOfPatchOperation = None
     ) -> Account:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         apply_json_patch_safe(region_details.account, patch_operations, in_place=True)
         result = to_account_response_json(region_details.account)
         return Account(**result)
@@ -249,7 +220,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def get_documentation_parts(
         self, context: RequestContext, request: GetDocumentationPartsRequest
     ) -> DocumentationParts:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         # This function returns either a list or a single entity (depending on the path)
         api_id = request["restApiId"]
@@ -274,7 +245,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         location: DocumentationPartLocation,
         properties: String,
     ) -> DocumentationPart:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         entity_id = short_uid()[:6]  # length 6 for AWS parity / Terraform compatibility
         entry = {
@@ -296,7 +267,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         documentation_part_id: String,
         patch_operations: ListOfPatchOperation = None,
     ) -> DocumentationPart:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         entity = find_api_subentity_by_id(rest_api_id, documentation_part_id, "documentation_parts")
         if entity is None:
@@ -315,7 +286,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def delete_documentation_part(
         self, context: RequestContext, rest_api_id: String, documentation_part_id: String
     ) -> None:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         auth_list = region_details.documentation_parts[rest_api_id]
         for i in range(len(auth_list)):
@@ -332,7 +303,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         position: String = None,
         limit: NullableInteger = None,
     ) -> BasePathMappings:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         mappings_list = region_details.base_path_mappings.get(domain_name) or []
 
@@ -344,7 +315,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def get_base_path_mapping(
         self, context: RequestContext, domain_name: String, base_path: String
     ) -> BasePathMapping:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         mappings_list = region_details.base_path_mappings.get(domain_name) or []
         mapping = ([m for m in mappings_list if m["basePath"] == base_path] or [None])[0]
@@ -362,7 +333,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         base_path: String = None,
         stage: String = None,
     ) -> BasePathMapping:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         # Note: "(none)" is a special value in API GW:
         # https://docs.aws.amazon.com/apigateway/api-reference/link-relation/basepathmapping-by-base-path
@@ -386,7 +357,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         base_path: String,
         patch_operations: ListOfPatchOperation = None,
     ) -> BasePathMapping:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         mappings_list = region_details.base_path_mappings.get(domain_name) or []
 
@@ -413,7 +384,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def delete_base_path_mapping(
         self, context: RequestContext, domain_name: String, base_path: String
     ) -> None:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         mappings_list = region_details.base_path_mappings.get(domain_name) or []
         for i in range(len(mappings_list)):
@@ -428,7 +399,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def get_client_certificate(
         self, context: RequestContext, client_certificate_id: String
     ) -> ClientCertificate:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         result = region_details.client_certificates.get(client_certificate_id)
         if result is None:
             raise NotFoundException(f"Client certificate ID {client_certificate_id} not found")
@@ -437,14 +408,14 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def get_client_certificates(
         self, context: RequestContext, position: String = None, limit: NullableInteger = None
     ) -> ClientCertificates:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         result = list(region_details.client_certificates.values())
         return ClientCertificates(items=result)
 
     def generate_client_certificate(
         self, context: RequestContext, description: String = None, tags: MapOfStringToString = None
     ) -> ClientCertificate:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         cert_id = short_uid()
         creation_time = now_utc()
         entry = {
@@ -465,7 +436,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         client_certificate_id: String,
         patch_operations: ListOfPatchOperation = None,
     ) -> ClientCertificate:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         entity = region_details.client_certificates.get(client_certificate_id)
         if entity is None:
             raise NotFoundException(f'Client certificate ID "{client_certificate_id}" not found')
@@ -476,7 +447,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def delete_client_certificate(
         self, context: RequestContext, client_certificate_id: String
     ) -> None:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         entity = region_details.client_certificates.pop(client_certificate_id, None)
         if entity is None:
             raise NotFoundException(f'VPC link ID "{client_certificate_id}" not found for deletion')
@@ -491,7 +462,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         description: String = None,
         tags: MapOfStringToString = None,
     ) -> VpcLink:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         link_id = short_uid()
         entry = {"id": link_id, "status": "AVAILABLE"}
         region_details.vpc_links[link_id] = entry
@@ -501,14 +472,14 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def get_vpc_links(
         self, context: RequestContext, position: String = None, limit: NullableInteger = None
     ) -> VpcLinks:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         result = region_details.vpc_links.values()
         result = [to_vpc_link_response_json(r) for r in result]
         result = {"items": result}
         return result
 
     def get_vpc_link(self, context: RequestContext, vpc_link_id: String) -> VpcLink:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         vpc_link = region_details.vpc_links.get(vpc_link_id)
         if vpc_link is None:
             raise NotFoundException(f'VPC link ID "{vpc_link_id}" not found')
@@ -521,7 +492,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         vpc_link_id: String,
         patch_operations: ListOfPatchOperation = None,
     ) -> VpcLink:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         vpc_link = region_details.vpc_links.get(vpc_link_id)
         if vpc_link is None:
             raise NotFoundException(f'VPC link ID "{vpc_link_id}" not found')
@@ -530,7 +501,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         return VpcLink(**result)
 
     def delete_vpc_link(self, context: RequestContext, vpc_link_id: String) -> None:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
         vpc_link = region_details.vpc_links.pop(vpc_link_id, None)
         if vpc_link is None:
             raise NotFoundException(f'VPC link ID "{vpc_link_id}" not found for deletion')
@@ -544,7 +515,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         position: String = None,
         limit: NullableInteger = None,
     ) -> RequestValidators:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         auth_list = region_details.validators.get(rest_api_id) or []
 
@@ -554,7 +525,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def get_request_validator(
         self, context: RequestContext, rest_api_id: String, request_validator_id: String
     ) -> RequestValidator:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         auth_list = region_details.validators.get(rest_api_id) or []
         validator = ([a for a in auth_list if a["id"] == request_validator_id] or [None])[0]
@@ -574,7 +545,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         validate_request_body: Boolean = None,
         validate_request_parameters: Boolean = None,
     ) -> RequestValidator:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         # length 6 for AWS parity and TF compatibility
         validator_id = short_uid()[:6]
@@ -597,7 +568,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         request_validator_id: String,
         patch_operations: ListOfPatchOperation = None,
     ) -> RequestValidator:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         auth_list = region_details.validators.get(rest_api_id) or []
         validator = ([a for a in auth_list if a["id"] == request_validator_id] or [None])[0]
@@ -620,7 +591,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def delete_request_validator(
         self, context: RequestContext, rest_api_id: String, request_validator_id: String
     ) -> None:
-        region_details = APIGatewayRegion.get()
+        region_details = get_apigateway_store()
 
         auth_list = region_details.validators.get(rest_api_id, [])
         for i in range(len(auth_list)):
@@ -641,31 +612,32 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         position: String = None,
         limit: NullableInteger = None,
     ) -> Tags:
-        result = APIGatewayRegion.TAGS.get(resource_arn, {})
+        result = get_apigateway_store().TAGS.get(resource_arn, {})
         return Tags(tags=result)
 
     def tag_resource(
         self, context: RequestContext, resource_arn: String, tags: MapOfStringToString
     ) -> None:
-        resource_tags = APIGatewayRegion.TAGS.setdefault(resource_arn, {})
+        resource_tags = get_apigateway_store().TAGS.setdefault(resource_arn, {})
         resource_tags.update(tags)
 
     def untag_resource(
         self, context: RequestContext, resource_arn: String, tag_keys: ListOfString
     ) -> None:
-        resource_tags = APIGatewayRegion.TAGS.setdefault(resource_arn, {})
+        resource_tags = get_apigateway_store().TAGS.setdefault(resource_arn, {})
         for key in tag_keys:
             resource_tags.pop(key, None)
 
     def import_rest_api(
         self,
         context: RequestContext,
-        body: Blob,
+        body: IO[Blob],
         fail_on_warnings: Boolean = None,
         parameters: MapOfStringToString = None,
     ) -> RestApi:
+        body_data = body.read()
 
-        openapi_spec = parse_json_or_yaml(to_str(body))
+        openapi_spec = parse_json_or_yaml(to_str(body_data))
         response = _call_moto(
             context,
             "CreateRestApi",
@@ -679,7 +651,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
                 restApiId=response.get("id"),
                 failOnWarnings=str_to_bool(fail_on_warnings) or False,
                 parameters=parameters or {},
-                body=body,
+                body=body_data,
             ),
         )
 
@@ -760,7 +732,7 @@ def _call_moto(context: RequestContext, operation_name: str, parameters: Service
         region=context.region,
     )
 
-    local_context.request.headers.extend(context.request.headers)
+    local_context.request.headers.update(context.request.headers)
     return call_moto(local_context)
 
 

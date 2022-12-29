@@ -24,6 +24,7 @@ class LocalstackAwsGateway(Gateway):
             [
                 handlers.push_request_context,
                 metric_collector.create_metric_handler_item,
+                handlers.preprocess_request,
                 handlers.parse_service_name,  # enforce_cors and content_decoder depend on the service name
                 handlers.enforce_cors,
                 handlers.content_decoder,
@@ -56,7 +57,9 @@ class LocalstackAwsGateway(Gateway):
         # response post-processing
         self.response_handlers.extend(
             [
+                handlers.modify_service_response,
                 handlers.parse_service_response,
+                handlers.set_close_connection_header,
                 handlers.run_custom_response_handlers,
                 handlers.add_cors_response_headers,
                 handlers.log_response,

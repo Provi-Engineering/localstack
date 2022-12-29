@@ -1,10 +1,12 @@
 from datetime import datetime, timezone
+from io import BytesIO
 from urllib.parse import unquote, urlencode, urlsplit
 
 import pytest
 from botocore.awsrequest import prepare_request_dict
 from botocore.serialize import create_serializer
 
+from localstack import config
 from localstack.aws.protocol.parser import (
     OperationNotFoundParserError,
     ProtocolParserError,
@@ -300,6 +302,12 @@ def _botocore_parser_integration_test(
 
     operation_model = service.operation_model(action)
     serialized_request = serializer.serialize_to_request(kwargs, operation_model)
+
+    # botocore >= 1.28 might modify the url path of the request dict (specifically for S3).
+    # It will then set the original url path as "auth_path". If the auth_path is set, we reset the url_path.
+    if auth_path := serialized_request.get("auth_path"):
+        serialized_request["url_path"] = auth_path
+
     prepare_request_dict(serialized_request, "")
     split_url = urlsplit(serialized_request.get("url"))
     path = split_url.path
@@ -553,6 +561,58 @@ def test_json_parser_cognito_with_botocore():
     )
 
 
+def test_json_cbor_blob_parsing():
+    serialized_request = {
+        "url_path": "/",
+        "query_string": "",
+        "method": "POST",
+        "headers": {
+            "Host": "localhost:4566",
+            "amz-sdk-invocation-id": "d77968c6-b536-155d-7228-d4dfe6372154",
+            "amz-sdk-request": "attempt=1; max=3",
+            "Content-Length": "103",
+            "Content-Type": "application/x-amz-cbor-1.1",
+            "X-Amz-Date": "20220721T081553Z",
+            "X-Amz-Target": "Kinesis_20131202.PutRecord",
+            "x-localstack-tgt-api": "kinesis",
+        },
+        "body": b"\xbfjStreamNamedtestdDataMhello, world!lPartitionKeylpartitionkey\xff",
+        "url": "/",
+        "context": {},
+    }
+
+    prepare_request_dict(serialized_request, "")
+    split_url = urlsplit(serialized_request.get("url"))
+    path = split_url.path
+    query_string = split_url.query
+
+    # Use our parser to parse the serialized body
+    # Load the appropriate service
+    service = load_service("kinesis")
+    operation_model = service.operation_model("PutRecord")
+    parser = create_parser(service)
+    parsed_operation_model, parsed_request = parser.parse(
+        HttpRequest(
+            method=serialized_request.get("method") or "GET",
+            path=unquote(path),
+            query_string=to_str(query_string),
+            headers=serialized_request.get("headers"),
+            body=serialized_request["body"],
+            raw_path=path,
+        )
+    )
+
+    # Check if the determined operation_model is correct
+    assert parsed_operation_model == operation_model
+
+    assert "Data" in parsed_request
+    assert parsed_request["Data"] == b"hello, world!"
+    assert "StreamName" in parsed_request
+    assert parsed_request["StreamName"] == "test"
+    assert "PartitionKey" in parsed_request
+    assert parsed_request["PartitionKey"] == "partitionkey"
+
+
 def test_restjson_parser_xray_with_botocore():
     _botocore_parser_integration_test(
         service="xray",
@@ -788,7 +848,7 @@ def test_parse_appconfig_non_json_blob_payload():
         action="CreateHostedConfigurationVersion",
         ApplicationId="test-application-id",
         ConfigurationProfileId="test-configuration-profile-id",
-        Content=b"<html></html>",
+        Content=BytesIO(b"<html></html>"),
         ContentType="application/html",
     )
 
@@ -870,7 +930,11 @@ def test_restjson_operation_detection_with_query_suffix_in_requesturi():
     Test if the correct operation is detected if the requestURI pattern of the specification contains the first query
     parameter, f.e. API Gateway's ImportRestApi: "/restapis?mode=import
     """
-    _botocore_parser_integration_test(service="apigateway", action="ImportRestApi", body=b"Test")
+    _botocore_parser_integration_test(
+        service="apigateway",
+        action="ImportRestApi",
+        body=BytesIO(b"Test"),
+    )
 
 
 def test_rest_url_parameter_with_dashes():
@@ -989,7 +1053,7 @@ def test_s3_put_object_keys_with_slashes():
         Bucket="test-bucket",
         Key="/test-key",
         ContentLength=6,
-        Body=b"foobar",
+        Body=BytesIO(b"foobar"),
         Metadata={},
     )
 
@@ -1035,12 +1099,15 @@ def test_restxml_header_date_parsing():
         Bucket="test-bucket",
         Key="test-key",
         ContentLength=3,
-        Body=b"foo",
+        Body=BytesIO(b"foo"),
         Metadata={},
         Expires=datetime(2015, 1, 1, 0, 0, tzinfo=timezone.utc),
     )
 
 
+@pytest.mark.skipif(
+    not config.LEGACY_S3_PROVIDER, reason="ASF provider does not rely on virtual host parser"
+)
 def test_s3_virtual_host_addressing():
     """Test the parsing of an S3 bucket request using the bucket encoded in the domain."""
     request = HttpRequest(

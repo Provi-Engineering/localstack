@@ -16,19 +16,25 @@ from moto.logs.models import logs_backends
 from localstack.aws.accounts import get_aws_account_id
 from localstack.aws.api import RequestContext
 from localstack.aws.api.logs import (
+    AmazonResourceName,
     InputLogEvents,
+    KmsKeyId,
+    ListTagsForResourceResponse,
+    ListTagsLogGroupResponse,
     LogGroupName,
     LogsApi,
     LogStreamName,
     PutLogEventsResponse,
     SequenceToken,
+    TagKeyList,
+    TagList,
+    Tags,
 )
-from localstack.aws.proxy import AwsApiListener
-from localstack.constants import APPLICATION_AMZ_JSON_1_1
-from localstack.services.messages import Request, Response
-from localstack.services.moto import MotoFallbackDispatcher, call_moto
+from localstack.services.logs.models import get_moto_logs_backend, logs_stores
+from localstack.services.moto import call_moto
 from localstack.services.plugins import ServiceLifecycleHook
-from localstack.utils.aws import aws_stack
+from localstack.utils.aws import arns, aws_stack
+from localstack.utils.aws.arns import extract_region_from_arn
 from localstack.utils.common import is_number
 from localstack.utils.patch import patch
 
@@ -48,7 +54,7 @@ class LogsProvider(LogsApi, ServiceLifecycleHook):
         log_events: InputLogEvents,
         sequence_token: SequenceToken = None,
     ) -> PutLogEventsResponse:
-        logs_backend = logs_backends[aws_stack.get_region()]
+        logs_backend = logs_backends[context.account_id][aws_stack.get_region()]
         metric_filters = logs_backend.filters.metric_filters
         for metric_filter in metric_filters:
             pattern = metric_filter.get("filterPattern", "")
@@ -74,18 +80,103 @@ class LogsProvider(LogsApi, ServiceLifecycleHook):
                             )
         return call_moto(context)
 
+    def create_log_group(
+        self,
+        context: RequestContext,
+        log_group_name: LogGroupName,
+        kms_key_id: KmsKeyId = None,
+        tags: Tags = None,
+    ) -> None:
+        call_moto(context)
+        if tags:
+            resource_arn = arns.log_group_arn(
+                group_name=log_group_name, account_id=context.account_id, region_name=context.region
+            )
+            store = logs_stores[context.account_id][context.region]
+            store.TAGS.setdefault(resource_arn, {}).update(tags)
 
-class LogsAwsApiListener(AwsApiListener):
-    def __init__(self):
-        self.provider = LogsProvider()
-        super().__init__("logs", MotoFallbackDispatcher(self.provider))
+    def list_tags_for_resource(
+        self, context: RequestContext, resource_arn: AmazonResourceName
+    ) -> ListTagsForResourceResponse:
+        self._check_resource_arn_tagging(resource_arn)
+        store = logs_stores[context.account_id][context.region]
+        tags = store.TAGS.get(resource_arn, {})
+        return ListTagsForResourceResponse(tags=tags)
 
-    def request(self, request: Request) -> Response:
-        response = super().request(request)
-        # Fix Incorrect response content-type header from cloudwatch logs #1343.
-        # True for all logs api responses.
-        response.headers["content-type"] = APPLICATION_AMZ_JSON_1_1
-        return response
+    def list_tags_log_group(
+        self, context: RequestContext, log_group_name: LogGroupName
+    ) -> ListTagsLogGroupResponse:
+        # deprecated implementation, new one: list_tags_for_resource
+        self._verify_log_group_exists(
+            group_name=log_group_name, account_id=context.account_id, region_name=context.region
+        )
+        resource_arn = arns.log_group_arn(
+            group_name=log_group_name, account_id=context.account_id, region_name=context.region
+        )
+        store = logs_stores[context.account_id][context.region]
+        tags = store.TAGS.get(resource_arn, {})
+        return ListTagsLogGroupResponse(tags=tags)
+
+    def untag_resource(
+        self, context: RequestContext, resource_arn: AmazonResourceName, tag_keys: TagKeyList
+    ) -> None:
+        self._check_resource_arn_tagging(resource_arn)
+        store = logs_stores[context.account_id][context.region]
+        tags_stored = store.TAGS.get(resource_arn, {})
+        for tag in tag_keys:
+            tags_stored.pop(tag, None)
+
+    def untag_log_group(
+        self, context: RequestContext, log_group_name: LogGroupName, tags: TagList
+    ) -> None:
+        # deprecated implementation -> new one: untag_resource
+        self._verify_log_group_exists(
+            group_name=log_group_name, account_id=context.account_id, region_name=context.region
+        )
+        resource_arn = arns.log_group_arn(
+            group_name=log_group_name, account_id=context.account_id, region_name=context.region
+        )
+        store = logs_stores[context.account_id][context.region]
+        tags_stored = store.TAGS.get(resource_arn, {})
+        for tag in tags:
+            tags_stored.pop(tag, None)
+
+    def tag_resource(
+        self, context: RequestContext, resource_arn: AmazonResourceName, tags: Tags
+    ) -> None:
+        self._check_resource_arn_tagging(resource_arn)
+        store = logs_stores[context.account_id][context.region]
+        store.TAGS.get(resource_arn, {}).update(tags or {})
+
+    def tag_log_group(
+        self, context: RequestContext, log_group_name: LogGroupName, tags: Tags
+    ) -> None:
+        # deprecated implementation -> new one: tag_resource
+        self._verify_log_group_exists(
+            group_name=log_group_name, account_id=context.account_id, region_name=context.region
+        )
+        resource_arn = arns.log_group_arn(
+            group_name=log_group_name, account_id=context.account_id, region_name=context.region
+        )
+        store = logs_stores[context.account_id][context.region]
+        store.TAGS.get(resource_arn, {}).update(tags or {})
+
+    def _verify_log_group_exists(self, group_name: LogGroupName, account_id: str, region_name: str):
+        store = get_moto_logs_backend(account_id, region_name)
+        if group_name not in store.groups:
+            raise ResourceNotFoundException()
+
+    def _check_resource_arn_tagging(self, resource_arn):
+        service = arns.extract_service_from_arn(resource_arn)
+        region = arns.extract_region_from_arn(resource_arn)
+        account = arns.extract_account_id_from_arn(resource_arn)
+
+        # AWS currently only supports tagging for Log Group and Destinations
+        # LS: we only verify if log group exists, and create tags for other resources
+        if service.lower().startswith("log-group:"):
+            self._verify_log_group_exists(
+                service.split(":")[-1], account_id=account, region_name=region
+            )
 
 
 def get_pattern_matcher(pattern: str) -> Callable[[str, Dict], bool]:
@@ -107,8 +198,10 @@ def moto_put_subscription_filter(fn, self, *args, **kwargs):
         raise ResourceNotFoundException("The specified log group does not exist.")
 
     if ":lambda:" in destination_arn:
-        client = aws_stack.connect_to_service("lambda")
-        lambda_name = aws_stack.lambda_function_name(destination_arn)
+        client = aws_stack.connect_to_service(
+            "lambda", region_name=extract_region_from_arn(destination_arn)
+        )
+        lambda_name = arns.lambda_function_name(destination_arn)
         try:
             client.get_function(FunctionName=lambda_name)
         except Exception:
@@ -118,7 +211,7 @@ def moto_put_subscription_filter(fn, self, *args, **kwargs):
 
     elif ":kinesis:" in destination_arn:
         client = aws_stack.connect_to_service("kinesis")
-        stream_name = aws_stack.kinesis_stream_name(destination_arn)
+        stream_name = arns.kinesis_stream_name(destination_arn)
         try:
             client.describe_stream(StreamName=stream_name)
         except Exception:
@@ -129,7 +222,7 @@ def moto_put_subscription_filter(fn, self, *args, **kwargs):
 
     elif ":firehose:" in destination_arn:
         client = aws_stack.connect_to_service("firehose")
-        firehose_name = aws_stack.firehose_name(destination_arn)
+        firehose_name = arns.firehose_name(destination_arn)
         try:
             client.describe_delivery_stream(DeliveryStreamName=firehose_name)
         except Exception:
@@ -139,7 +232,7 @@ def moto_put_subscription_filter(fn, self, *args, **kwargs):
             )
 
     else:
-        service = aws_stack.extract_service_from_arn(destination_arn)
+        service = arns.extract_service_from_arn(destination_arn)
         raise InvalidParameterException(
             f"PutSubscriptionFilter operation cannot work with destinationArn for vendor {service}"
         )
@@ -196,12 +289,14 @@ def moto_put_log_events(self, log_group_name, log_stream_name, log_events):
         event = {"awslogs": {"data": base64.b64encode(output.getvalue()).decode("utf-8")}}
 
         if ":lambda:" in self.destination_arn:
-            client = aws_stack.connect_to_service("lambda")
-            lambda_name = aws_stack.lambda_function_name(self.destination_arn)
+            client = aws_stack.connect_to_service(
+                "lambda", region_name=extract_region_from_arn(self.destination_arn)
+            )
+            lambda_name = arns.lambda_function_name(self.destination_arn)
             client.invoke(FunctionName=lambda_name, Payload=json.dumps(event))
         if ":kinesis:" in self.destination_arn:
             client = aws_stack.connect_to_service("kinesis")
-            stream_name = aws_stack.kinesis_stream_name(self.destination_arn)
+            stream_name = arns.kinesis_stream_name(self.destination_arn)
             client.put_record(
                 StreamName=stream_name,
                 Data=payload_gz_encoded,
@@ -209,7 +304,7 @@ def moto_put_log_events(self, log_group_name, log_stream_name, log_events):
             )
         if ":firehose:" in self.destination_arn:
             client = aws_stack.connect_to_service("firehose")
-            firehose_name = aws_stack.firehose_name(self.destination_arn)
+            firehose_name = arns.firehose_name(self.destination_arn)
             client.put_record(
                 DeliveryStreamName=firehose_name,
                 Record={"Data": payload_gz_encoded},

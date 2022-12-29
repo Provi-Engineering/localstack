@@ -20,44 +20,39 @@ from localstack.services.generic_proxy import (
     update_path_in_url,
 )
 from localstack.services.messages import Request, Response
-from localstack.utils.aws import aws_stack
-from localstack.utils.bootstrap import is_api_enabled
+from localstack.utils.aws import aws_stack, resources
 from localstack.utils.common import get_free_tcp_port, short_uid, to_str
 from localstack.utils.xml import strip_xmlns
 
 
 class TestEdgeAPI:
-    @pytest.mark.skipif(not is_api_enabled("kinesis"), reason="kinesis not enabled")
     def test_invoke_kinesis(self):
         edge_url = config.get_edge_url()
         self._invoke_kinesis_via_edge(edge_url)
 
-    @pytest.mark.skipif(not is_api_enabled("dynamodbstreams"), reason="dynamodbstreams not enabled")
     def test_invoke_dynamodb(self):
         edge_url = config.get_edge_url()
         self._invoke_dynamodb_via_edge_go_sdk(edge_url)
 
-    @pytest.mark.skipif(not is_api_enabled("dynamodbstreams"), reason="dynamodbstreams not enabled")
     def test_invoke_dynamodbstreams(self):
         edge_url = config.get_edge_url()
         self._invoke_dynamodbstreams_via_edge(edge_url)
 
-    @pytest.mark.skipif(not is_api_enabled("firehose"), reason="firehose not enabled")
     def test_invoke_firehose(self):
         edge_url = config.get_edge_url()
         self._invoke_firehose_via_edge(edge_url)
 
-    @pytest.mark.skipif(not is_api_enabled("stepfunctions"), reason="stepfunctions not enabled")
     def test_invoke_stepfunctions(self):
         edge_url = config.get_edge_url()
         self._invoke_stepfunctions_via_edge(edge_url)
 
-    @pytest.mark.skipif(not is_api_enabled("s3"), reason="s3 not enabled")
+    @pytest.mark.skipif(
+        condition=not config.LEGACY_S3_PROVIDER, reason="S3 ASF provider does not have POST yet"
+    )
     def test_invoke_s3(self):
         edge_url = config.get_edge_url()
         self._invoke_s3_via_edge(edge_url)
 
-    @pytest.mark.skipif(not is_api_enabled("s3"), reason="s3 not enabled")
     @pytest.mark.xfail(
         condition=not config.LEGACY_EDGE_PROXY, reason="failing with new HTTP gateway (only in CI)"
     )
@@ -88,7 +83,7 @@ class TestEdgeAPI:
     def _invoke_dynamodb_via_edge_go_sdk(self, edge_url):
         client = aws_stack.create_external_boto_client("dynamodb")
         table_name = f"t-{short_uid()}"
-        aws_stack.create_dynamodb_table(table_name, "id")
+        resources.create_dynamodb_table(table_name, "id")
 
         # emulate a request sent from the AWS Go SDK v2
         headers = {
@@ -246,6 +241,9 @@ class TestEdgeAPI:
         if region_original is not None:
             os.environ["DEFAULT_REGION"] = region_original
 
+    @pytest.mark.skipif(
+        condition=not config.LEGACY_S3_PROVIDER, reason="S3 ASF provider does not use ProxyListener"
+    )
     def test_message_modifying_handler(self, s3_client, monkeypatch):
         class MessageModifier(MessageModifyingProxyListener):
             def forward_request(self, method, path: str, data, headers):
@@ -278,6 +276,9 @@ class TestEdgeAPI:
         content = to_str(result["Body"].read())
         assert " patched" in content
 
+    @pytest.mark.skipif(
+        condition=not config.LEGACY_S3_PROVIDER, reason="S3 ASF provider does not use ProxyListener"
+    )
     def test_handler_returning_none_method(self, s3_client, monkeypatch):
         class MessageModifier(ProxyListener):
             def forward_request(self, method, path: str, data, headers):

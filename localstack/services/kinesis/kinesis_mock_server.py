@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 from localstack import config
-from localstack.services import install
+from localstack.services.kinesis.packages import kinesismock_package
 from localstack.utils.common import (
     TMP_THREADS,
     ShellCommandThread,
@@ -26,14 +26,17 @@ class KinesisMockServer(Server):
         port: int,
         bin_path: str,
         latency: str,
+        account_id: str,
         host: str = "localhost",
         log_level: str = "INFO",
         data_dir: Optional[str] = None,
         initialize_streams: Optional[str] = None,
     ) -> None:
+        self._account_id = account_id
         self._latency = latency
         self._initialize_streams = initialize_streams
         self._data_dir = data_dir
+        self._data_filename = f"{self._account_id}.json"
         self._bin_path = bin_path
         self._log_level = log_level
         super().__init__(port, host)
@@ -47,6 +50,7 @@ class KinesisMockServer(Server):
             env_vars=env_vars,
             log_listener=self._log_listener,
             auto_restart=True,
+            name="kinesis-mock",
         )
         TMP_THREADS.append(t)
         t.start()
@@ -57,7 +61,15 @@ class KinesisMockServer(Server):
         Helper method for creating kinesis mock invocation command
         :return: returns a tuple containing the command list and a dictionary with the environment variables
         """
-        env_vars = {"KINESIS_MOCK_PLAIN_PORT": self.port, "SHARD_LIMIT": config.KINESIS_SHARD_LIMIT}
+        env_vars = {
+            "KINESIS_MOCK_PLAIN_PORT": self.port,
+            # Each kinesis-mock instance listens to two ports - secure and insecure.
+            # LocalStack uses only one - the insecure one. Block the secure port to avoid conflicts.
+            "KINESIS_MOCK_TLS_PORT": get_free_tcp_port(),
+            "SHARD_LIMIT": config.KINESIS_SHARD_LIMIT,
+            "ON_DEMAND_STREAM_COUNT_LIMIT": config.KINESIS_ON_DEMAND_STREAM_COUNT_LIMIT,
+            "AWS_ACCOUNT_ID": self._account_id,
+        }
 
         latency_params = [
             "CREATE_STREAM_DURATION",
@@ -69,6 +81,7 @@ class KinesisMockServer(Server):
             "MERGE_SHARDS_DURATION",
             "SPLIT_SHARD_DURATION",
             "UPDATE_SHARD_COUNT_DURATION",
+            "UPDATE_STREAM_MODE_DURATION",
         ]
         for param in latency_params:
             env_vars[param] = self._latency
@@ -76,6 +89,7 @@ class KinesisMockServer(Server):
         if self._data_dir:
             env_vars["SHOULD_PERSIST_DATA"] = "true"
             env_vars["PERSIST_PATH"] = self._data_dir
+            env_vars["PERSIST_FILE_NAME"] = self._data_filename
             env_vars["PERSIST_INTERVAL"] = config.KINESIS_MOCK_PERSIST_INTERVAL
 
         env_vars["LOG_LEVEL"] = self._log_level
@@ -93,7 +107,9 @@ class KinesisMockServer(Server):
         LOG.info(line.rstrip())
 
 
-def create_kinesis_mock_server(port=None, persist_path: Optional[str] = None) -> KinesisMockServer:
+def create_kinesis_mock_server(
+    account_id: str, port=None, persist_path: Optional[str] = None
+) -> KinesisMockServer:
     """
     Creates a new Kinesis Mock server instance. Installs Kinesis Mock on the host first if necessary.
     Introspects on the host config to determine server configuration:
@@ -103,9 +119,8 @@ def create_kinesis_mock_server(port=None, persist_path: Optional[str] = None) ->
     config.KINESIS_INITIALIZE_STREAMS -> Initialize the given streams on startup
     """
     port = port or get_free_tcp_port()
-    is_kinesis_mock_installed, kinesis_mock_bin_path = install.get_is_kinesis_mock_installed()
-    if not is_kinesis_mock_installed:
-        install.install_kinesis_mock(kinesis_mock_bin_path)
+    kinesismock_package.install()
+    kinesis_mock_bin_path = kinesismock_package.get_installer().get_executable_path()
     persist_path = (
         f"{config.dirs.data}/kinesis" if not persist_path and config.dirs.data else persist_path
     )
@@ -132,5 +147,6 @@ def create_kinesis_mock_server(port=None, persist_path: Optional[str] = None) ->
         latency=latency,
         initialize_streams=initialize_streams,
         data_dir=persist_path,
+        account_id=account_id,
     )
     return server

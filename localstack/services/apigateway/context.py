@@ -1,16 +1,15 @@
 import base64
 import json
 from enum import Enum
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from responses import Response
 
 from localstack.constants import HEADER_LOCALSTACK_EDGE_URL
 from localstack.utils.aws.aws_responses import parse_query_string
-
-# type definition for data parameters (i.e., invocation payloads)
 from localstack.utils.strings import short_uid, to_str
 
+# type definition for data parameters (i.e., invocation payloads)
 InvocationPayload = Union[Dict, str, bytes]
 
 
@@ -37,6 +36,7 @@ class ApiInvocationContext:
     apigw_version: ApiGatewayVersion
     api_id: str
     stage: str
+    account_id: str
     region_name: str
     # resource path, including any path parameter placeholders (e.g., "/my/path/{id}")
     resource_path: str
@@ -82,6 +82,7 @@ class ApiInvocationContext:
         self.api_id = api_id
         self.stage = stage
         self.region_name = None
+        self.account_id = None
         self.integration = None
         self.resource = None
         self.resource_path = None
@@ -89,6 +90,7 @@ class ApiInvocationContext:
         self.response_templates = {}
         self.stage_variables = {}
         self.path_params = {}
+        self.route = None
         self.ws_route = None
 
     @property
@@ -127,8 +129,7 @@ class ApiInvocationContext:
             context = self.auth_info.setdefault("context", {})
             if principal := self.auth_info.get("principalId"):
                 context["principalId"] = principal
-                return context
-            return self.auth_info
+            return context
 
     @property
     def auth_identity(self) -> Optional[Dict]:
@@ -150,10 +151,10 @@ class ApiInvocationContext:
         """Whether this is an API Gateway v1 request"""
         return self.apigw_version == ApiGatewayVersion.V1
 
-    def cookies(self):
+    def cookies(self) -> Optional[List[str]]:
         if cookies := self.headers.get("cookie") or "":
             return list(cookies.split(";"))
-        return []
+        return None
 
     @property
     def is_data_base64_encoded(self):
@@ -163,13 +164,14 @@ class ApiInvocationContext:
         except UnicodeDecodeError:
             return True
 
-    def data_as_string(self) -> Union[str, bytes]:
+    def data_as_string(self) -> str:
         try:
             return (
                 json.dumps(self.data) if isinstance(self.data, (dict, list)) else to_str(self.data)
             )
         except UnicodeDecodeError:
-            return base64.b64encode(self.data)
+            # we string encode our base64 as string as well
+            return to_str(base64.b64encode(self.data))
 
     def _extract_host_from_header(self):
         host = self.headers.get(HEADER_LOCALSTACK_EDGE_URL) or self.headers.get("host", "")

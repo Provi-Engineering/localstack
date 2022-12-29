@@ -3,40 +3,58 @@ import logging
 from xml.sax.saxutils import escape
 
 from moto.cloudwatch import cloudwatch_backends
-from moto.cloudwatch.models import CloudWatchBackend, FakeAlarm
+from moto.cloudwatch.models import CloudWatchBackend, FakeAlarm, MetricDatum
 
+from localstack.aws.accounts import get_aws_account_id
 from localstack.aws.api import CommonServiceException, RequestContext, handler
 from localstack.aws.api.cloudwatch import (
     AlarmNames,
     AmazonResourceName,
     CloudwatchApi,
+    DescribeAlarmsInput,
+    DescribeAlarmsOutput,
+    GetMetricDataInput,
+    GetMetricDataOutput,
+    GetMetricStatisticsInput,
+    GetMetricStatisticsOutput,
     ListTagsForResourceOutput,
     PutCompositeAlarmInput,
     PutMetricAlarmInput,
+    StateValue,
     TagKeyList,
     TagList,
     TagResourceOutput,
     UntagResourceOutput,
 )
+from localstack.constants import DEFAULT_AWS_ACCOUNT_ID
+from localstack.deprecations import deprecated_endpoint
 from localstack.http import Request
 from localstack.services import moto
 from localstack.services.cloudwatch.alarm_scheduler import AlarmScheduler
 from localstack.services.edge import ROUTER
 from localstack.services.plugins import SERVICE_PLUGINS, ServiceLifecycleHook
-from localstack.utils.aws import aws_stack
+from localstack.utils.aws import arns, aws_stack
+from localstack.utils.aws.aws_stack import extract_access_key_id_from_auth_header
 from localstack.utils.patch import patch
 from localstack.utils.sync import poll_condition
 from localstack.utils.tagging import TaggingService
 from localstack.utils.threads import start_worker_thread
 
-PATH_GET_RAW_METRICS = "/cloudwatch/metrics/raw"
+PATH_GET_RAW_METRICS = "/_aws/cloudwatch/metrics/raw"
+DEPRECATED_PATH_GET_RAW_METRICS = "/cloudwatch/metrics/raw"
+MOTO_INITIAL_UNCHECKED_REASON = "Unchecked: Initial alarm creation"
 
 LOG = logging.getLogger(__name__)
 
 
 @patch(target=FakeAlarm.update_state)
 def update_state(target, self, reason, reason_data, state_value):
-    old_state = self.state_value
+    if reason_data is None:
+        reason_data = ""
+    if self.state_reason == MOTO_INITIAL_UNCHECKED_REASON:
+        old_state = StateValue.INSUFFICIENT_DATA
+    else:
+        old_state = self.state_value
     target(self, reason, reason_data, state_value)
 
     # check the state and trigger required actions
@@ -49,7 +67,7 @@ def update_state(target, self, reason, reason_data, state_value):
     else:
         actions = self.insufficient_data_actions
     for action in actions:
-        data = aws_stack.parse_arn(action)
+        data = arns.parse_arn(action)
         # test for sns - can this be done in a more generic way?
         if data["service"] == "sns":
             service = aws_stack.connect_to_service(data["service"])
@@ -125,6 +143,7 @@ def put_metric_alarm(
 
 def create_message_response_update_state(alarm, old_state):
     response = {
+        "AWSAccountId": get_aws_account_id(),
         "OldStateValue": old_state,
         "AlarmName": alarm.name,
         "AlarmDescription": alarm.description or "",
@@ -132,11 +151,13 @@ def create_message_response_update_state(alarm, old_state):
         "NewStateValue": alarm.state_value,
         "NewStateReason": alarm.state_reason,
         "StateChangeTime": alarm.state_updated_timestamp,
-        "Region": alarm.region_name,
+        # the long-name for 'region' should be used - as we don't have it, we use the short name
+        # which needs to be slightly changed to make snapshot tests work
+        "Region": alarm.region_name.replace("-", " ").capitalize(),
         "AlarmArn": alarm.alarm_arn,
-        "OKActions": alarm.ok_actions or "",
-        "AlarmActions": alarm.alarm_actions or "",
-        "InsufficientDataActions": alarm.insufficient_data_actions or "",
+        "OKActions": alarm.ok_actions or [],
+        "AlarmActions": alarm.alarm_actions or [],
+        "InsufficientDataActions": alarm.insufficient_data_actions or [],
     }
 
     # collect trigger details
@@ -177,6 +198,25 @@ class ValidationError(CommonServiceException):
         super().__init__("ValidationError", message, 400, True)
 
 
+def _set_alarm_actions(context, alarm_names, enabled):
+    backend = cloudwatch_backends[context.account_id][context.region]
+    for name in alarm_names:
+        alarm = backend.alarms.get(name)
+        if alarm:
+            alarm.actions_enabled = enabled
+
+
+def _cleanup_describe_output(alarm):
+    reason_data = alarm.get("StateReasonData")
+    if reason_data is not None and reason_data in ("{}", ""):
+        alarm.pop("StateReasonData")
+    if (
+        alarm.get("StateReason", "") == MOTO_INITIAL_UNCHECKED_REASON
+        and alarm.get("StateValue") != StateValue.INSUFFICIENT_DATA
+    ):
+        alarm["StateValue"] = StateValue.INSUFFICIENT_DATA
+
+
 class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
     """
     Cloudwatch provider.
@@ -191,6 +231,16 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
 
     def on_after_init(self):
         ROUTER.add(PATH_GET_RAW_METRICS, self.get_raw_metrics)
+        # TODO remove with 2.0
+        ROUTER.add(
+            DEPRECATED_PATH_GET_RAW_METRICS,
+            deprecated_endpoint(
+                self.get_raw_metrics,
+                previous_path=DEPRECATED_PATH_GET_RAW_METRICS,
+                deprecation_version="1.3.0",
+                new_path=PATH_GET_RAW_METRICS,
+            ),
+        )
         self.alarm_scheduler = AlarmScheduler()
 
     def on_before_start(self):
@@ -207,14 +257,18 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
     def delete_alarms(self, context: RequestContext, alarm_names: AlarmNames) -> None:
         moto.call_moto(context)
         for alarm_name in alarm_names:
-            arn = aws_stack.cloudwatch_alarm_arn(alarm_name)
+            arn = arns.cloudwatch_alarm_arn(alarm_name)
             self.alarm_scheduler.delete_scheduler_for_alarm(arn)
 
     def get_raw_metrics(self, request: Request):
         region = aws_stack.extract_region_from_auth_header(request.headers)
-        backend = cloudwatch_backends[region]
+        account_id = (
+            extract_access_key_id_from_auth_header(request.headers) or DEFAULT_AWS_ACCOUNT_ID
+        )
+        backend = cloudwatch_backends[account_id][region]
         if backend:
-            result = backend.metric_data
+            result = [m for m in backend.metric_data if isinstance(m, MetricDatum)]
+            # TODO handle aggregated metrics as well (MetricAggregatedDatum)
         else:
             result = []
 
@@ -247,6 +301,26 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
     ) -> TagResourceOutput:
         self.tags.tag_resource(resource_arn, tags)
         return TagResourceOutput()
+
+    @handler("GetMetricData", expand=False)
+    def get_metric_data(
+        self, context: RequestContext, request: GetMetricDataInput
+    ) -> GetMetricDataOutput:
+        result = moto.call_moto(context)
+        # moto currently uses hardcoded label metric_name + stat
+        # parity tests shows that default is MetricStat, but there might also be a label explicitly set
+        metric_data_queries = request["MetricDataQueries"]
+        for i in range(0, len(metric_data_queries)):
+            metric_query = metric_data_queries[i]
+            label = metric_query.get("Label") or metric_query.get("MetricStat", {}).get(
+                "Metric", {}
+            ).get("MetricName")
+            if label:
+                result["MetricDataResults"][i]["Label"] = label
+        if "Messages" not in result:
+            # parity tests reveals that an empty messages list is added
+            result["Messages"] = []
+        return result
 
     @handler("PutMetricAlarm", expand=False)
     def put_metric_alarm(
@@ -287,7 +361,7 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
         moto.call_moto(context)
 
         name = request.get("AlarmName")
-        arn = aws_stack.cloudwatch_alarm_arn(name)
+        arn = arns.cloudwatch_alarm_arn(name)
         self.tags.tag_resource(arn, request.get("Tags"))
         self.alarm_scheduler.schedule_metric_alarm(arn)
 
@@ -297,7 +371,7 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
         context: RequestContext,
         request: PutCompositeAlarmInput,
     ) -> None:
-        backend = cloudwatch_backends[context.region]
+        backend = cloudwatch_backends[context.account_id][context.region]
         backend.put_metric_alarm(
             name=request.get("AlarmName"),
             namespace=None,
@@ -326,3 +400,37 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
         LOG.warning(
             "Composite Alarms configuration is not yet supported, alarm state will not be evaluated"
         )
+
+    @handler("EnableAlarmActions")
+    def enable_alarm_actions(self, context: RequestContext, alarm_names: AlarmNames) -> None:
+        _set_alarm_actions(context, alarm_names, enabled=True)
+
+    @handler("DisableAlarmActions")
+    def disable_alarm_actions(self, context: RequestContext, alarm_names: AlarmNames) -> None:
+        _set_alarm_actions(context, alarm_names, enabled=False)
+
+    @handler("DescribeAlarms", expand=False)
+    def describe_alarms(
+        self, context: RequestContext, request: DescribeAlarmsInput
+    ) -> DescribeAlarmsOutput:
+        response = moto.call_moto(context)
+
+        for c in response["CompositeAlarms"]:
+            _cleanup_describe_output(c)
+        for m in response["MetricAlarms"]:
+            _cleanup_describe_output(m)
+
+        return response
+
+    @handler("GetMetricStatistics", expand=False)
+    def get_metric_statistics(
+        self, context: RequestContext, request: GetMetricStatisticsInput
+    ) -> GetMetricStatisticsOutput:
+        response = moto.call_moto(context)
+
+        # cleanup -> ExtendendStatics is not included in AWS response if it returned empty
+        for datapoint in response.get("Datapoints"):
+            if "ExtendedStatistics" in datapoint and not datapoint.get("ExtendedStatistics"):
+                datapoint.pop("ExtendedStatistics")
+
+        return response

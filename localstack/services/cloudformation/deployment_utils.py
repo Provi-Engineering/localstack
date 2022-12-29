@@ -1,19 +1,13 @@
+import builtins
 import json
-import os
+import re
+from copy import deepcopy
 from typing import Callable
 
-from localstack.config import dirs
 from localstack.utils import common
 from localstack.utils.common import select_attributes, short_uid
 
-# URL to "cfn-response" module which is required in some CF Lambdas. The purpose of cfn-response is to make it easier
-# to write "inline" code for custom resources. TODO: consider copying code into our repo instead of downloading it
-CFN_RESPONSE_MODULE_URL = (
-    "https://raw.githubusercontent.com/LukeMizuhashi/cfn-response/master/index.js"
-)
-
 # placeholders
-PLACEHOLDER_RESOURCE_NAME = "__resource_name__"
 PLACEHOLDER_AWS_NO_VALUE = "__aws_no_value__"
 
 
@@ -118,13 +112,6 @@ def param_json_to_str(name):
     return _convert
 
 
-def get_cfn_response_mod_file():
-    cfn_response_tmp_file = os.path.join(dirs.static_libs, "lambda.cfn-response.js")
-    if not os.path.exists(cfn_response_tmp_file):
-        common.download(CFN_RESPONSE_MODULE_URL, cfn_response_tmp_file)
-    return cfn_response_tmp_file
-
-
 def lambda_select_params(*selected):
     # TODO: remove and merge with function below
     return select_parameters(*selected)
@@ -161,3 +148,50 @@ def pre_create_default_name(key: str) -> Callable[[str, dict, str, dict, str], N
             props[key] = generate_default_name(stack_name, resource_id)
 
     return _pre_create_default_name
+
+
+# Utils for parameter conversion
+
+# TODO: handling of multiple valid types
+param_validation = re.compile(
+    r"Invalid type for parameter (?P<param>\w+), value: (?P<value>\w+), type: <class '(?P<wrong_class>\w+)'>, valid types: <class '(?P<valid_class>\w+)'>"
+)
+
+
+def get_nested(obj: dict, path: str):
+    parts = path.split(".")
+    result = obj
+    for p in parts[:-1]:
+        result = result.get(p, {})
+    return result.get(parts[-1])
+
+
+def set_nested(obj: dict, path: str, value):
+    parts = path.split(".")
+    result = obj
+    for p in parts[:-1]:
+        result = result.get(p, {})
+    result[parts[-1]] = value
+
+
+def fix_boto_parameters_based_on_report(original_params: dict, report: str) -> dict:
+    """
+    Fix invalid type parameter validation errors in boto request parameters
+
+    :param original_params: original boto request parameters that lead to the parameter validation error
+    :param report: error report from botocore ParamValidator
+    :return: a copy of original_params with all values replaced by their correctly cast ones
+    """
+    params = deepcopy(original_params)
+    for found in param_validation.findall(report):
+        param_name, value, wrong_class, valid_class = found
+        cast_class = getattr(builtins, valid_class)
+        old_value = get_nested(params, param_name)
+
+        new_value = None
+        if cast_class == bool and str(old_value).lower() in ["true", "false"]:
+            new_value = str(old_value).lower() == "true"
+        else:
+            new_value = cast_class(old_value)
+        set_nested(params, param_name, new_value)
+    return params

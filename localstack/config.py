@@ -97,7 +97,7 @@ class Directories:
             data=f"{DEFAULT_VOLUME_DIR}/state",
             logs=f"{DEFAULT_VOLUME_DIR}/logs",
             config="/etc/localstack/conf.d",  # for future use
-            init="/etc/localstack/init",  # for future use
+            init="/etc/localstack/init",
         )
 
     @staticmethod
@@ -119,7 +119,7 @@ class Directories:
             data=defaults.data if PERSISTENCE else os.path.join(defaults.tmp, "state"),
             config=defaults.config,
             logs=defaults.logs,
-            init="/docker-entrypoint-initaws.d",  # FIXME should be reworked with lifecycle hooks
+            init=defaults.init,
         )
 
     @staticmethod
@@ -312,7 +312,7 @@ def in_docker():
         pass
     with open("/proc/1/cgroup", "rt") as ifh:
         content = ifh.read()
-        if "docker" in content:
+        if "docker" in content or "buildkit" in content:
             return True
         os_hostname = socket.gethostname()
         if os_hostname and os_hostname in content:
@@ -340,9 +340,9 @@ except ImportError:
     pass
 
 # default AWS region
-if "DEFAULT_REGION" not in os.environ:
-    os.environ["DEFAULT_REGION"] = os.environ.get("AWS_DEFAULT_REGION") or AWS_REGION_US_EAST_1
-DEFAULT_REGION = os.environ["DEFAULT_REGION"]
+DEFAULT_REGION = (
+    os.environ.get("DEFAULT_REGION") or os.environ.get("AWS_DEFAULT_REGION") or AWS_REGION_US_EAST_1
+)
 
 # expose services on a specific host externally
 HOSTNAME_EXTERNAL = os.environ.get("HOSTNAME_EXTERNAL", "").strip() or LOCALHOST
@@ -395,6 +395,10 @@ USE_SSL = is_env_true("USE_SSL")
 # whether to use the legacy edge proxy or the newer Gateway/HandlerChain framework
 LEGACY_EDGE_PROXY = is_env_true("LEGACY_EDGE_PROXY")
 
+# whether legacy s3 is enabled
+# TODO change when asf becomes default: os.environ.get("PROVIDER_OVERRIDE_S3", "") == 'legacy'
+LEGACY_S3_PROVIDER = os.environ.get("PROVIDER_OVERRIDE_S3", "") not in ("asf", "asf_pro")
+
 # Whether to report internal failures as 500 or 501 errors.
 FAIL_FAST = is_env_true("FAIL_FAST")
 
@@ -446,6 +450,7 @@ DISABLE_CUSTOM_CORS_APIGATEWAY = is_env_true("DISABLE_CUSTOM_CORS_APIGATEWAY")
 EXTRA_CORS_ALLOWED_HEADERS = os.environ.get("EXTRA_CORS_ALLOWED_HEADERS", "").strip()
 EXTRA_CORS_EXPOSE_HEADERS = os.environ.get("EXTRA_CORS_EXPOSE_HEADERS", "").strip()
 EXTRA_CORS_ALLOWED_ORIGINS = os.environ.get("EXTRA_CORS_ALLOWED_ORIGINS", "").strip()
+DISABLE_PREFLIGHT_PROCESSING = is_env_true("DISABLE_PREFLIGHT_PROCESSING")
 
 # whether to disable publishing events to the API
 DISABLE_EVENTS = is_env_true("DISABLE_EVENTS")
@@ -454,14 +459,14 @@ DEBUG_ANALYTICS = is_env_true("DEBUG_ANALYTICS")
 # whether to eagerly start services
 EAGER_SERVICE_LOADING = is_env_true("EAGER_SERVICE_LOADING")
 
-# whether to enable multi-accounts
-MULTI_ACCOUNTS = is_env_true("MULTI_ACCOUNTS")
-
 # Whether to skip downloading additional infrastructure components (e.g., custom Elasticsearch versions)
 SKIP_INFRA_DOWNLOADS = os.environ.get("SKIP_INFRA_DOWNLOADS", "").strip()
 
 # Whether to skip downloading our signed SSL cert.
 SKIP_SSL_CERT_DOWNLOAD = is_env_true("SKIP_SSL_CERT_DOWNLOAD")
+
+# Absolute path to a custom certificate (pem file)
+CUSTOM_SSL_CERT_PATH = os.environ.get("CUSTOM_SSL_CERT_PATH", "").strip()
 
 # name of the main Docker container
 MAIN_CONTAINER_NAME = os.environ.get("MAIN_CONTAINER_NAME", "").strip() or "localstack_main"
@@ -544,24 +549,23 @@ EXTERNAL_SERVICE_PORTS_END = int(
 # java options to Lambda
 LAMBDA_JAVA_OPTS = os.environ.get("LAMBDA_JAVA_OPTS", "").strip()
 
-# limit in which to kinesalite will start throwing exceptions
+# limit in which to kinesis-mock will start throwing exceptions
 KINESIS_SHARD_LIMIT = os.environ.get("KINESIS_SHARD_LIMIT", "").strip() or "100"
 
-# delay in kinesalite response when making changes to streams
+# limit in which to kinesis-mock will start throwing exceptions
+KINESIS_ON_DEMAND_STREAM_COUNT_LIMIT = (
+    os.environ.get("KINESIS_ON_DEMAND_STREAM_COUNT_LIMIT", "").strip() or "10"
+)
+
+# delay in kinesis-mock response when making changes to streams
 KINESIS_LATENCY = os.environ.get("KINESIS_LATENCY", "").strip() or "500"
 
 # Delay between data persistence (in seconds)
 KINESIS_MOCK_PERSIST_INTERVAL = os.environ.get("KINESIS_MOCK_PERSIST_INTERVAL", "").strip() or "5s"
 
-# Kinesis provider - either "kinesis-mock" or "kinesalite"
-KINESIS_PROVIDER = os.environ.get("KINESIS_PROVIDER") or "kinesis-mock"
-
 # Whether or not to handle lambda event sources as synchronous invocations
-SYNCHRONOUS_SNS_EVENTS = is_env_true("SYNCHRONOUS_SNS_EVENTS")
-SYNCHRONOUS_SQS_EVENTS = is_env_true("SYNCHRONOUS_SQS_EVENTS")
-SYNCHRONOUS_API_GATEWAY_EVENTS = is_env_not_false("SYNCHRONOUS_API_GATEWAY_EVENTS")
-SYNCHRONOUS_KINESIS_EVENTS = is_env_not_false("SYNCHRONOUS_KINESIS_EVENTS")
-SYNCHRONOUS_DYNAMODB_EVENTS = is_env_not_false("SYNCHRONOUS_DYNAMODB_EVENTS")
+SYNCHRONOUS_SNS_EVENTS = is_env_true("SYNCHRONOUS_SNS_EVENTS")  # DEPRECATED
+SYNCHRONOUS_KINESIS_EVENTS = is_env_not_false("SYNCHRONOUS_KINESIS_EVENTS")  # DEPRECATED
 
 # randomly inject faults to Kinesis
 KINESIS_ERROR_PROBABILITY = float(os.environ.get("KINESIS_ERROR_PROBABILITY", "").strip() or 0.0)
@@ -580,6 +584,9 @@ DYNAMODB_HEAP_SIZE = os.environ.get("DYNAMODB_HEAP_SIZE", "").strip() or "256m"
 
 # single DB instance across multiple credentials are regions
 DYNAMODB_SHARE_DB = int(os.environ.get("DYNAMODB_SHARE_DB") or 0)
+
+# Used to toggle PurgeInProgress exceptions when calling purge within 60 seconds
+SQS_DELAY_PURGE_RETRY = is_env_true("SQS_DELAY_PURGE_RETRY")
 
 # Used to toggle QueueDeletedRecently errors when re-creating a queue within 60 seconds of deleting it
 SQS_DELAY_RECENTLY_DELETED = is_env_true("SQS_DELAY_RECENTLY_DELETED")
@@ -617,15 +624,32 @@ LAMBDA_DOCKER_FLAGS = os.environ.get("LAMBDA_DOCKER_FLAGS", "").strip()
 # prebuild images before execution? Increased cold start time on the tradeoff of increased time until lambda is ACTIVE
 LAMBDA_PREBUILD_IMAGES = is_env_true("LAMBDA_PREBUILD_IMAGES")
 
+# get the lambda runtime executor name
+LAMBDA_RUNTIME_EXECUTOR = os.environ.get("LAMBDA_RUNTIME_EXECUTOR", "").strip()
+
+# Lambda executor startup timeout
+LAMBDA_RUNTIME_ENVIRONMENT_TIMEOUT = int(os.environ.get("LAMBDA_RUNTIME_ENVIRONMENT_TIMEOUT") or 10)
+
 # default container registry for lambda execution images
 LAMBDA_CONTAINER_REGISTRY = (
     os.environ.get("LAMBDA_CONTAINER_REGISTRY", "").strip() or DEFAULT_LAMBDA_CONTAINER_REGISTRY
 )
 
+# EXPERIMENTAL | Only applicable to new Lambda Provider
+# Allows two options to customize the resolution of Lambda runtime:
+#   1. pattern with <runtime> placeholder, e.g. "custom-repo/lambda-<runtime>:2022"
+#   2. json dict mapping the <runtime> to an image, e.g. '{"python3.9": "custom-repo/lambda-py:thon3.9"}'
+LAMBDA_RUNTIME_IMAGE_MAPPING = os.environ.get("LAMBDA_RUNTIME_IMAGE_MAPPING", "").strip()
+
 # whether to remove containers after Lambdas finished executing
 LAMBDA_REMOVE_CONTAINERS = (
     os.environ.get("LAMBDA_REMOVE_CONTAINERS", "").lower().strip() not in FALSE_STRINGS
 )
+
+# DEV | Only for LS developers. Only applicable to new Lambda provider.
+# whether to explicitly expose port in lambda container when invoking functions in host mode for systems that cannot
+# reach the container via its IPv4 (e.g., macOS https://docs.docker.com/desktop/networking/#i-cannot-ping-my-containers)
+LAMBDA_DEV_PORT_EXPOSE = is_env_true("LAMBDA_DEV_PORT_EXPOSE")
 
 # Adding Stepfunctions default port
 LOCAL_PORT_STEPFUNCTIONS = int(os.environ.get("LOCAL_PORT_STEPFUNCTIONS") or 8083)
@@ -660,8 +684,16 @@ LAMBDA_STAY_OPEN_MODE = is_in_docker and is_env_not_false("LAMBDA_STAY_OPEN_MODE
 # truncate output string slices value
 LAMBDA_TRUNCATE_STDOUT = int(os.getenv("LAMBDA_TRUNCATE_STDOUT") or 2000)
 
+# sets an alternative base delay in seconds for async retries (only applicable to ASF Lambda provider)
+# defaults to 60s (behavior on AWS)
+# the first retry will be 1x LAMBDA_RETRY_BASE_DELAY_SECONDS, the second one 2x LAMBDA_RETRY_BASE_DELAY_SECONDS
+# e.g. LAMBDA_RETRY_BASE_DELAY_SECONDS=30.
+#   The delay between the initial invocation and first retry will be 30s.
+#   The delay between the first retry and the second retry will be 60s
+LAMBDA_RETRY_BASE_DELAY_SECONDS = int(os.getenv("LAMBDA_RETRY_BASE_DELAY") or 60)
+
 # A comma-delimited string of stream names and its corresponding shard count to
-# initialize during startup.
+# initialize during startup (DEPRECATED).
 # For example: "my-first-stream:1,my-other-stream:2,my-last-stream:1"
 KINESIS_INITIALIZE_STREAMS = os.environ.get("KINESIS_INITIALIZE_STREAMS", "").strip()
 
@@ -690,11 +722,20 @@ OPENSEARCH_MULTI_CLUSTER = is_env_not_false("OPENSEARCH_MULTI_CLUSTER") or is_en
     "ES_MULTI_CLUSTER"
 )
 
+# TODO remove fallback to LAMBDA_DOCKER_NETWORK with next minor version
+MAIN_DOCKER_NETWORK = os.environ.get("MAIN_DOCKER_NETWORK", "") or LAMBDA_DOCKER_NETWORK
+
+# EXPERIMENTAL/LEGACY. Use this flag to return to the legacy behavior of resolving references in the specific models
+CFN_ENABLE_RESOLVE_REFS_IN_MODELS = is_env_true("CFN_ENABLE_RESOLVE_REFS_IN_MODELS")
+
+
 # list of environment variable names used for configuration.
 # Make sure to keep this in sync with the above!
 # Note: do *not* include DATA_DIR in this list, as it is treated separately
 CONFIG_ENV_VARS = [
     "BUCKET_MARKER_LOCAL",
+    "CFN_ENABLE_RESOLVE_REFS_IN_MODELS",
+    "CUSTOM_SSL_CERT_PATH",
     "DEBUG",
     "DEFAULT_REGION",
     "DEVELOP",
@@ -707,6 +748,7 @@ CONFIG_ENV_VARS = [
     "DOCKER_BRIDGE_IP",
     "DYNAMODB_ERROR_PROBABILITY",
     "DYNAMODB_HEAP_SIZE",
+    "DYNAMODB_IN_MEMORY",
     "DYNAMODB_SHARE_DB",
     "DYNAMODB_READ_ERROR_PROBABILITY",
     "DYNAMODB_WRITE_ERROR_PROBABILITY",
@@ -728,6 +770,7 @@ CONFIG_ENV_VARS = [
     "KINESIS_ERROR_PROBABILITY",
     "KINESIS_INITIALIZE_STREAMS",
     "KINESIS_MOCK_PERSIST_INTERVAL",
+    "KINESIS_ON_DEMAND_STREAM_COUNT_LIMIT",
     "LAMBDA_CODE_EXTRACT_TIME",
     "LAMBDA_CONTAINER_REGISTRY",
     "LAMBDA_DOCKER_DNS",
@@ -736,11 +779,16 @@ CONFIG_ENV_VARS = [
     "LAMBDA_EXECUTOR",
     "LAMBDA_FALLBACK_URL",
     "LAMBDA_FORWARD_URL",
+    "LAMBDA_RUNTIME_IMAGE_MAPPING",
     "LAMBDA_JAVA_OPTS",
     "LAMBDA_REMOTE_DOCKER",
     "LAMBDA_REMOVE_CONTAINERS",
+    "LAMBDA_DEV_PORT_EXPOSE",
+    "LAMBDA_RUNTIME_EXECUTOR",
+    "LAMBDA_RUNTIME_ENVIRONMENT_TIMEOUT",
     "LAMBDA_STAY_OPEN_MODE",
     "LAMBDA_TRUNCATE_STDOUT",
+    "LAMBDA_RETRY_BASE_DELAY_SECONDS",
     "LEGACY_DIRECTORIES",
     "LEGACY_DOCKER_CLIENT",
     "LEGACY_EDGE_PROXY",
@@ -749,7 +797,6 @@ CONFIG_ENV_VARS = [
     "LOG_LICENSE_ISSUES",
     "LS_LOG",
     "MAIN_CONTAINER_NAME",
-    "MULTI_ACCOUNTS",
     "OPENSEARCH_ENDPOINT_STRATEGY",
     "OUTBOUND_HTTP_PROXY",
     "OUTBOUND_HTTPS_PROXY",
@@ -759,15 +806,13 @@ CONFIG_ENV_VARS = [
     "SERVICES",
     "SKIP_INFRA_DOWNLOADS",
     "SKIP_SSL_CERT_DOWNLOAD",
+    "SQS_DELAY_PURGE_RETRY",
     "SQS_DELAY_RECENTLY_DELETED",
     "SQS_ENDPOINT_STRATEGY",
     "SQS_PORT_EXTERNAL",
     "STEPFUNCTIONS_LAMBDA_ENDPOINT",
-    "SYNCHRONOUS_API_GATEWAY_EVENTS",
-    "SYNCHRONOUS_DYNAMODB_EVENTS",
     "SYNCHRONOUS_KINESIS_EVENTS",
     "SYNCHRONOUS_SNS_EVENTS",
-    "SYNCHRONOUS_SQS_EVENTS",
     "TEST_AWS_ACCOUNT_ID",
     "TEST_IAM_USER_ID",
     "TEST_IAM_USER_NAME",
@@ -815,10 +860,33 @@ def collect_config_items() -> List[Tuple[str, Any]]:
     return result
 
 
+def is_trace_logging_enabled():
+    if LS_LOG:
+        log_level = str(LS_LOG).upper()
+        return log_level.lower() in TRACE_LOG_LEVELS
+    return False
+
+
+# set log levels immediately, but will be overwritten later by setup_logging
+if DEBUG:
+    logging.getLogger("").setLevel(logging.DEBUG)
+    logging.getLogger("localstack").setLevel(logging.DEBUG)
+
+LOG = logging.getLogger(__name__)
+if is_trace_logging_enabled():
+    load_end_time = time.time()
+    LOG.debug(
+        "Initializing the configuration took %s ms", int((load_end_time - load_start_time) * 1000)
+    )
+
+
 def parse_service_ports() -> Dict[str, int]:
     """Parses the environment variable $SERVICES with a comma-separated list of services
     and (optional) ports they should run on: 'service1:port1,service2,service3:port3'"""
     service_ports = os.environ.get("SERVICES", "").strip()
+    if service_ports and not is_env_true("EAGER_SERVICE_LOADING"):
+        LOG.warning("SERVICES variable is ignored if EAGER_SERVICE_LOADING=0.")
+        service_ports = None  # TODO remove logic once we clear up the service ports stuff
     if not service_ports:
         return DEFAULT_SERVICE_PORTS
     result = {}
@@ -842,11 +910,6 @@ def parse_service_ports() -> Dict[str, int]:
             port_number = 0
         result[service] = port_number
     return result
-
-
-# TODO: leaving temporarily for patch compatibilty - remove!
-def populate_configs(service_ports=None):
-    pass
 
 
 # TODO: use functools cache, instead of global variable here
@@ -924,26 +987,6 @@ def edge_ports_info():
         result = "port %s" % EDGE_PORT
     result = "%s %s" % (get_protocol(), result)
     return result
-
-
-def is_trace_logging_enabled():
-    if LS_LOG:
-        log_level = str(LS_LOG).upper()
-        return log_level.lower() in TRACE_LOG_LEVELS
-    return False
-
-
-# set log levels immediately, but will be overwritten later by setup_logging
-if DEBUG:
-    logging.getLogger("").setLevel(logging.DEBUG)
-    logging.getLogger("localstack").setLevel(logging.DEBUG)
-
-LOG = logging.getLogger(__name__)
-if is_trace_logging_enabled():
-    load_end_time = time.time()
-    LOG.debug(
-        "Initializing the configuration took %s ms", int((load_end_time - load_start_time) * 1000)
-    )
 
 
 class ServiceProviderConfig(Mapping[str, str]):

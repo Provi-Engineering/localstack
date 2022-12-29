@@ -109,7 +109,7 @@ def run(
                         if o:
                             os.write(sys.stdout.fileno(), o)
 
-            FuncThread(pipe_streams).start()
+            FuncThread(pipe_streams, name="pipe-streams").start()
 
         return process
     except subprocess.CalledProcessError as e:
@@ -213,6 +213,7 @@ class ShellCommandThread(FuncThread):
         log_listener: Callable = None,
         stop_listener: Callable = None,
         strip_color: bool = False,
+        name: Optional[str] = None,
     ):
         params = params if params is not None else {}
         env_vars = env_vars if env_vars is not None else {}
@@ -229,7 +230,9 @@ class ShellCommandThread(FuncThread):
         self.stop_listener = stop_listener
         self.strip_color = strip_color
         self.started = threading.Event()
-        FuncThread.__init__(self, self.run_cmd, params, quiet=quiet)
+        FuncThread.__init__(
+            self, self.run_cmd, params, quiet=quiet, name=(name or "shell-cmd-thread")
+        )
 
     def run_cmd(self, params):
         while True:
@@ -436,3 +439,55 @@ class CaptureOutput:
 
     def _stream_value(self, stream):
         return stream.getvalue() if hasattr(stream, "getvalue") else stream
+
+
+class CaptureOutputProcess:
+    """A context manager that captures stdout/stderr of the current process.
+
+    Basically a lightweight version of CaptureOutput without tracking internal thread mapping
+
+    Use it as follows:
+
+    with CaptureOutput() as c:
+        ...
+    print(c.stdout(), c.stderr())
+    """
+
+    class LogStreamIO(io.StringIO):
+        def write(self, s):
+            if isinstance(s, str) and hasattr(s, "decode"):
+                s = s.decode("unicode-escape")
+            return super(CaptureOutputProcess.LogStreamIO, self).write(s)
+
+    def __init__(self):
+        self.orig_stdout = sys.stdout
+        self._stdout = self.LogStreamIO()
+        self.orig_stderr = sys.stderr
+        self._stderr = self.LogStreamIO()
+        self.stdout_value = None
+        self.stderr_value = None
+
+    def __enter__(self):
+        sys.stdout = self._stdout
+        sys.stderr = self._stderr
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self._stdout.flush()
+        self._stderr.flush()
+
+        self.stdout_value = self._stdout.getvalue()
+        self.stderr_value = self._stderr.getvalue()
+
+        # close handles
+        self._stdout.close()
+        self._stderr.close()
+
+        sys.stdout = self.orig_stdout
+        sys.stderr = self.orig_stderr
+
+    def stdout(self):
+        return self.stdout_value
+
+    def stderr(self):
+        return self.stderr_value

@@ -18,7 +18,7 @@ line_length = 100
 max-line-length = 110
 ignore = 'E203,E266,E501,W503,F403'
 select = 'B,C,E,F,I,W,T4,B9'
-exclude = 'node_modules,.venv*,venv*,dist,build,target,*.egg-info,fixes,localstack/infra,localstack/node_modules,.filesystem'
+exclude = 'node_modules,.venv*,venv*,dist,build,target,*.egg-info,fixes,localstack/infra,localstack/node_modules,.filesystem,.git'
 
 [tool.coverage.run]
 relative_files = true
@@ -26,9 +26,8 @@ source = [
     "localstack/"
 ]
 omit = [
-    "localstack/infra/",
-    "localstack/node_modules",
-    "localstack/aws/api"
+    "localstack/aws/api/*",
+    "localstack/extensions/api/*",
 ]
 [tool.coverage.report]
 exclude_lines = [
@@ -41,5 +40,5 @@ exclude_lines = [
 [tool.pytest.ini_options]
 log_cli = true
 log_level = "DEBUG"
-log_cli_format = "%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s: %(message)s"
+log_cli_format = "%(asctime)s.%(msecs)03d %(levelname)5s --- [%(threadName)12s] %(name)-26s : %(message)s"
 log_cli_date_format = "%Y-%m-%dT%H:%M:%S"

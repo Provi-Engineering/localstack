@@ -1,7 +1,7 @@
 import json
 import re
 
-from localstack.services.apigateway.integration import ApiGatewayVtlTemplate
+from localstack.services.apigateway.templates import ApiGatewayVtlTemplate
 from localstack.utils.aws.templating import render_velocity_template
 
 # template used to transform incoming requests at the API Gateway (forward to Kinesis)
@@ -32,8 +32,8 @@ APIGW_TEMPLATE_CONSTRUCT_JSON = """
 {
     #foreach($key in $map.keySet())
         #set( $k = $util.escapeJavaScript($key) )
-        #set( $v = $util.escapeJavaScript($map.get($key)).replaceAll("\\\\'", "'") )
-        $k: $v
+        #set( $v = $util.escapeJavaScript($map.get($key)))
+        "$k": "$v"
         #if( $foreach.hasNext ) , #end
     #end
 }
@@ -110,6 +110,14 @@ class TestMessageTransformationBasic:
         result = re.sub(r"\s+", " ", result).strip()
         assert result == '{"foo": "bar2"}'
 
+    def test_quiet_return_put(self):
+        template = "#set($v1 = {})\n$util.qr($v1.put('value', 'hi2'))\n#return($v1)"
+        result = render_velocity_template(template, {})
+        assert json.loads(result) == {"value": "hi2"}
+        template = "#set($v1 = {})\n$util.qr($v1.put('value', 'hi2'))\n"
+        result = render_velocity_template(template, {})
+        assert result.strip() == ""
+
     def test_map_put_all(self):
         template = """
         #set($v1 = {})
@@ -139,11 +147,11 @@ class TestMessageTransformationBasic:
 class TestMessageTransformationApiGateway:
     def test_construct_json_using_define(self):
         template = APIGW_TEMPLATE_CONSTRUCT_JSON
-        data = {"p1": {"test": 123}, "p2": {"foo": "bar", "foo2": False}}
-        variables = {"input": {"body": data}}
-        result = ApiGatewayVtlTemplate().render_vtl(template, variables).strip()
+        variables = {"input": {"body": {"p1": {"test": 123}, "p2": {"foo": "bar", "foo2": False}}}}
+        result = ApiGatewayVtlTemplate().render_vtl(template, variables)
+        result = re.sub(r"\s+", " ", result).strip()
         result = json.loads(result)
-        assert result == {"p0": True, **data}
+        assert result == {"p0": True, "p1": {"test": "123"}, "p2": {"foo": "bar", "foo2": "false"}}
 
     def test_array_size(self):
         template = "#set($list = $input.path('$.records')) $list.size()"
@@ -213,3 +221,15 @@ class TestMessageTransformationApiGateway:
         variables = {"input": {"body": body}}
         result = ApiGatewayVtlTemplate().render_vtl(template, variables)
         assert result == " b"
+
+    def test_dash_in_variable_name(self):
+        template = "#set($start = 1)#set($end = 5)#foreach($i in [$start .. $end])$i -#end"
+        result = ApiGatewayVtlTemplate().render_vtl(template, {})
+        assert result == "1 -2 -3 -4 -5 -"
+
+        template = """
+         $method.request.header.X-My-Header
+        """
+        variables = {"method": {"request": {"header": {"X-My-Header": "my-header-value"}}}}
+        result = ApiGatewayVtlTemplate().render_vtl(template, variables).strip()
+        assert result == "my-header-value"

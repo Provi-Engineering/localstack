@@ -1,17 +1,22 @@
 import base64
 import json
+import logging
 import os
+import threading
 import time
 import unittest
 
 import pytest
+from botocore.exceptions import ClientError
 
+import localstack.services.awslambda.lambda_api
 from localstack import config
 from localstack.services.awslambda import lambda_api, lambda_executors
-from localstack.services.awslambda.lambda_api import use_docker
-from localstack.services.awslambda.lambda_utils import LAMBDA_RUNTIME_PYTHON36
+from localstack.services.awslambda.lambda_api import do_set_function_code, use_docker
+from localstack.services.awslambda.lambda_utils import LAMBDA_RUNTIME_PYTHON39
 from localstack.services.generic_proxy import ProxyListener
 from localstack.services.infra import start_proxy
+from localstack.testing.aws.lambda_utils import is_new_provider
 from localstack.utils import testutil
 from localstack.utils.aws import aws_stack
 from localstack.utils.common import (
@@ -24,8 +29,14 @@ from localstack.utils.common import (
     to_bytes,
     to_str,
 )
+from localstack.utils.testutil import create_lambda_archive
 
-from .test_lambda import TEST_LAMBDA_ENV, TEST_LAMBDA_LIBS, TEST_LAMBDA_PYTHON
+from .test_lambda import (
+    TEST_LAMBDA_ENV,
+    TEST_LAMBDA_LIBS,
+    TEST_LAMBDA_PYTHON,
+    TEST_LAMBDA_PYTHON_ECHO,
+)
 
 # TestLocalLambda variables
 THIS_FOLDER = os.path.dirname(os.path.realpath(__file__))
@@ -34,6 +45,12 @@ TEST_LAMBDA_PYTHON3_MULTIPLE_CREATE1 = os.path.join(
 )
 TEST_LAMBDA_PYTHON3_MULTIPLE_CREATE2 = os.path.join(
     THIS_FOLDER, "functions", "python3", "lambda2", "lambda2.zip"
+)
+
+LOG = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.skipif(
+    condition=is_new_provider(), reason="only relevant for old provider"
 )
 
 
@@ -77,6 +94,8 @@ class TestLambdaFallbackUrl(unittest.TestCase):
         self.assertEqual(items_before + 3, items_after)
 
     def test_forward_to_fallback_url_http(self):
+        lambda_client = aws_stack.create_external_boto_client("lambda")
+
         class MyUpdateListener(ProxyListener):
             def forward_request(self, method, path, data, headers):
                 records.append({"data": data, "headers": headers, "method": method, "path": path})
@@ -86,7 +105,7 @@ class TestLambdaFallbackUrl(unittest.TestCase):
         local_port = get_free_tcp_port()
         proxy = start_proxy(local_port, backend_url=None, update_listener=MyUpdateListener())
 
-        local_url = "%s://localhost:%s" % (get_service_protocol(), local_port)
+        local_url = f"{get_service_protocol()}://localhost:{local_port}"
 
         # test 1: forward to LAMBDA_FALLBACK_URL
         records = []
@@ -97,12 +116,13 @@ class TestLambdaFallbackUrl(unittest.TestCase):
         self.assertEqual(3, items_after)
 
         # create test Lambda
-        lambda_name = "test-%s" % short_uid()
+        lambda_name = f"test-{short_uid()}"
         testutil.create_lambda_function(
             handler_file=TEST_LAMBDA_PYTHON,
             func_name=lambda_name,
             libs=TEST_LAMBDA_LIBS,
         )
+        lambda_client.get_waiter("function_active_v2").wait(FunctionName=lambda_name)
 
         # test 2: forward to LAMBDA_FORWARD_URL
         records = []
@@ -124,7 +144,6 @@ class TestLambdaFallbackUrl(unittest.TestCase):
         self.assertEqual(lambda_result, json.loads(response_payload))
 
         # clean up / shutdown
-        lambda_client = aws_stack.create_external_boto_client("lambda")
         lambda_client.delete_function(FunctionName=lambda_name)
         proxy.stop()
 
@@ -168,6 +187,7 @@ class TestDockerExecutors(unittest.TestCase):
                 func_name=function_name,
             )
             lambda_client = aws_stack.create_external_boto_client("lambda")
+            lambda_client.get_waiter("function_active_v2").wait(FunctionName=function_name)
             result = lambda_client.invoke(FunctionName=function_name, Payload="{}")
             self.assertEqual(200, result["ResponseMetadata"]["HTTPStatusCode"])
             result_data = result["Payload"].read()
@@ -191,6 +211,7 @@ class TestDockerExecutors(unittest.TestCase):
             libs=TEST_LAMBDA_LIBS,
             envvars={"Hello": "World"},
         )
+        self.lambda_client.get_waiter("function_active_v2").wait(FunctionName=func_name)
 
         # test first invocation
         result = self.lambda_client.invoke(FunctionName=func_name, Payload=b"{}")
@@ -233,6 +254,7 @@ class TestDockerExecutors(unittest.TestCase):
             libs=TEST_LAMBDA_LIBS,
             envvars={"Hello": "World"},
         )
+        self.lambda_client.get_waiter("function_active_v2").wait(FunctionName=func_name)
 
         self.assertEqual(0, len(executor.get_all_container_names()))
         self.assertDictEqual({}, executor.function_invoke_times)
@@ -301,6 +323,7 @@ class TestDockerExecutors(unittest.TestCase):
             libs=TEST_LAMBDA_LIBS,
             envvars={"Hello": "World"},
         )
+        self.lambda_client.get_waiter("function_active_v2").wait(FunctionName=func_name)
 
         self.assertEqual(0, len(executor.get_all_container_names()))
 
@@ -341,17 +364,19 @@ class TestLocalExecutors(unittest.TestCase):
             testutil.create_lambda_function(
                 func_name=lambda_name1,
                 zip_file=python3_with_settings1,
-                runtime=LAMBDA_RUNTIME_PYTHON36,
+                runtime=LAMBDA_RUNTIME_PYTHON39,
                 handler="handler1.handler",
             )
+            lambda_client.get_waiter("function_active_v2").wait(FunctionName=lambda_name1)
 
             lambda_name2 = "test2-%s" % short_uid()
             testutil.create_lambda_function(
                 func_name=lambda_name2,
                 zip_file=python3_with_settings2,
-                runtime=LAMBDA_RUNTIME_PYTHON36,
+                runtime=LAMBDA_RUNTIME_PYTHON39,
                 handler="handler2.handler",
             )
+            lambda_client.get_waiter("function_active_v2").wait(FunctionName=lambda_name2)
 
             result1 = lambda_client.invoke(FunctionName=lambda_name1, Payload=b"{}")
             result_data1 = result1["Payload"].read()
@@ -370,3 +395,57 @@ class TestLocalExecutors(unittest.TestCase):
             testutil.delete_lambda_function(lambda_name2)
         finally:
             lambda_api.DO_USE_DOCKER = original_do_use_docker
+
+
+class TestFunctionStates:
+    def test_invoke_failure_when_state_pending(self, lambda_client, lambda_su_role, monkeypatch):
+        """Tests if a lambda invocation fails if state is pending"""
+        function_name = f"test-function-{short_uid()}"
+        zip_file = create_lambda_archive(load_file(TEST_LAMBDA_PYTHON_ECHO), get_content=True)
+
+        function_code_set = threading.Event()
+
+        def _do_set_function_code(*args, **kwargs):
+            result = do_set_function_code(*args, **kwargs)
+            function_code_set.wait()
+            return result
+
+        monkeypatch.setattr(
+            localstack.services.awslambda.lambda_api, "do_set_function_code", _do_set_function_code
+        )
+        try:
+            response = lambda_client.create_function(
+                FunctionName=function_name,
+                Runtime="python3.9",
+                Handler="handler.handler",
+                Role=lambda_su_role,
+                Code={"ZipFile": zip_file},
+            )
+
+            assert response["State"] == "Pending"
+
+            with pytest.raises(ClientError) as e:
+                lambda_client.invoke(FunctionName=function_name, Payload=b"{}")
+
+            assert e.value.response["ResponseMetadata"]["HTTPStatusCode"] == 409
+            assert e.match("ResourceConflictException")
+            assert e.match(
+                "The operation cannot be performed at this time. The function is currently in the following state: Pending"
+            )
+
+            # let function move to active
+            function_code_set.set()
+
+            # lambda has to get active at some point
+            def _check_lambda_state():
+                response = lambda_client.get_function(FunctionName=function_name)
+                assert response["Configuration"]["State"] == "Active"
+                return response
+
+            retry(_check_lambda_state)
+            lambda_client.invoke(FunctionName=function_name, Payload=b"{}")
+        finally:
+            try:
+                lambda_client.delete_function(FunctionName=function_name)
+            except Exception:
+                LOG.debug("Unable to delete function %s", function_name)

@@ -37,6 +37,12 @@ RegionType = str
 TagKeyType = str
 TagValueType = str
 TrustAnchorCertificateType = str
+XksKeyIdType = str
+XksProxyAuthenticationAccessKeyIdType = str
+XksProxyAuthenticationRawSecretAccessKeyType = str
+XksProxyUriEndpointType = str
+XksProxyUriPathType = str
+XksProxyVpcEndpointServiceNameType = str
 
 
 class AlgorithmSpec(str):
@@ -55,6 +61,17 @@ class ConnectionErrorCodeType(str):
     USER_NOT_FOUND = "USER_NOT_FOUND"
     USER_LOGGED_IN = "USER_LOGGED_IN"
     SUBNET_NOT_FOUND = "SUBNET_NOT_FOUND"
+    INSUFFICIENT_FREE_ADDRESSES_IN_SUBNET = "INSUFFICIENT_FREE_ADDRESSES_IN_SUBNET"
+    XKS_PROXY_ACCESS_DENIED = "XKS_PROXY_ACCESS_DENIED"
+    XKS_PROXY_NOT_REACHABLE = "XKS_PROXY_NOT_REACHABLE"
+    XKS_VPC_ENDPOINT_SERVICE_NOT_FOUND = "XKS_VPC_ENDPOINT_SERVICE_NOT_FOUND"
+    XKS_PROXY_INVALID_RESPONSE = "XKS_PROXY_INVALID_RESPONSE"
+    XKS_PROXY_INVALID_CONFIGURATION = "XKS_PROXY_INVALID_CONFIGURATION"
+    XKS_VPC_ENDPOINT_SERVICE_INVALID_CONFIGURATION = (
+        "XKS_VPC_ENDPOINT_SERVICE_INVALID_CONFIGURATION"
+    )
+    XKS_PROXY_TIMED_OUT = "XKS_PROXY_TIMED_OUT"
+    XKS_PROXY_INVALID_TLS_CONFIGURATION = "XKS_PROXY_INVALID_TLS_CONFIGURATION"
 
 
 class ConnectionStateType(str):
@@ -63,6 +80,11 @@ class ConnectionStateType(str):
     FAILED = "FAILED"
     DISCONNECTED = "DISCONNECTED"
     DISCONNECTING = "DISCONNECTING"
+
+
+class CustomKeyStoreType(str):
+    AWS_CLOUDHSM = "AWS_CLOUDHSM"
+    EXTERNAL_KEY_STORE = "EXTERNAL_KEY_STORE"
 
 
 class CustomerMasterKeySpec(str):
@@ -78,6 +100,7 @@ class CustomerMasterKeySpec(str):
     HMAC_256 = "HMAC_256"
     HMAC_384 = "HMAC_384"
     HMAC_512 = "HMAC_512"
+    SM2 = "SM2"
 
 
 class DataKeyPairSpec(str):
@@ -88,6 +111,7 @@ class DataKeyPairSpec(str):
     ECC_NIST_P384 = "ECC_NIST_P384"
     ECC_NIST_P521 = "ECC_NIST_P521"
     ECC_SECG_P256K1 = "ECC_SECG_P256K1"
+    SM2 = "SM2"
 
 
 class DataKeySpec(str):
@@ -99,6 +123,7 @@ class EncryptionAlgorithmSpec(str):
     SYMMETRIC_DEFAULT = "SYMMETRIC_DEFAULT"
     RSAES_OAEP_SHA_1 = "RSAES_OAEP_SHA_1"
     RSAES_OAEP_SHA_256 = "RSAES_OAEP_SHA_256"
+    SM2PKE = "SM2PKE"
 
 
 class ExpirationModelType(str):
@@ -143,6 +168,7 @@ class KeySpec(str):
     HMAC_256 = "HMAC_256"
     HMAC_384 = "HMAC_384"
     HMAC_512 = "HMAC_512"
+    SM2 = "SM2"
 
 
 class KeyState(str):
@@ -183,6 +209,7 @@ class OriginType(str):
     AWS_KMS = "AWS_KMS"
     EXTERNAL = "EXTERNAL"
     AWS_CLOUDHSM = "AWS_CLOUDHSM"
+    EXTERNAL_KEY_STORE = "EXTERNAL_KEY_STORE"
 
 
 class SigningAlgorithmSpec(str):
@@ -195,248 +222,292 @@ class SigningAlgorithmSpec(str):
     ECDSA_SHA_256 = "ECDSA_SHA_256"
     ECDSA_SHA_384 = "ECDSA_SHA_384"
     ECDSA_SHA_512 = "ECDSA_SHA_512"
+    SM2DSA = "SM2DSA"
 
 
 class WrappingKeySpec(str):
     RSA_2048 = "RSA_2048"
 
 
+class XksProxyConnectivityType(str):
+    PUBLIC_ENDPOINT = "PUBLIC_ENDPOINT"
+    VPC_ENDPOINT_SERVICE = "VPC_ENDPOINT_SERVICE"
+
+
 class AlreadyExistsException(ServiceException):
     code: str = "AlreadyExistsException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class CloudHsmClusterInUseException(ServiceException):
     code: str = "CloudHsmClusterInUseException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class CloudHsmClusterInvalidConfigurationException(ServiceException):
     code: str = "CloudHsmClusterInvalidConfigurationException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class CloudHsmClusterNotActiveException(ServiceException):
     code: str = "CloudHsmClusterNotActiveException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class CloudHsmClusterNotFoundException(ServiceException):
     code: str = "CloudHsmClusterNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class CloudHsmClusterNotRelatedException(ServiceException):
     code: str = "CloudHsmClusterNotRelatedException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class CustomKeyStoreHasCMKsException(ServiceException):
     code: str = "CustomKeyStoreHasCMKsException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class CustomKeyStoreInvalidStateException(ServiceException):
     code: str = "CustomKeyStoreInvalidStateException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class CustomKeyStoreNameInUseException(ServiceException):
     code: str = "CustomKeyStoreNameInUseException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class CustomKeyStoreNotFoundException(ServiceException):
     code: str = "CustomKeyStoreNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class DependencyTimeoutException(ServiceException):
     code: str = "DependencyTimeoutException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class DisabledException(ServiceException):
     code: str = "DisabledException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class ExpiredImportTokenException(ServiceException):
     code: str = "ExpiredImportTokenException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class IncorrectKeyException(ServiceException):
     code: str = "IncorrectKeyException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class IncorrectKeyMaterialException(ServiceException):
     code: str = "IncorrectKeyMaterialException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class IncorrectTrustAnchorException(ServiceException):
     code: str = "IncorrectTrustAnchorException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class InvalidAliasNameException(ServiceException):
     code: str = "InvalidAliasNameException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class InvalidArnException(ServiceException):
     code: str = "InvalidArnException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class InvalidCiphertextException(ServiceException):
     code: str = "InvalidCiphertextException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class InvalidGrantIdException(ServiceException):
     code: str = "InvalidGrantIdException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class InvalidGrantTokenException(ServiceException):
     code: str = "InvalidGrantTokenException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class InvalidImportTokenException(ServiceException):
     code: str = "InvalidImportTokenException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class InvalidKeyUsageException(ServiceException):
     code: str = "InvalidKeyUsageException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class InvalidMarkerException(ServiceException):
     code: str = "InvalidMarkerException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class KMSInternalException(ServiceException):
     code: str = "KMSInternalException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class KMSInvalidMacException(ServiceException):
     code: str = "KMSInvalidMacException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class KMSInvalidSignatureException(ServiceException):
     code: str = "KMSInvalidSignatureException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class KMSInvalidStateException(ServiceException):
     code: str = "KMSInvalidStateException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class KeyUnavailableException(ServiceException):
     code: str = "KeyUnavailableException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class LimitExceededException(ServiceException):
     code: str = "LimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class MalformedPolicyDocumentException(ServiceException):
     code: str = "MalformedPolicyDocumentException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class NotFoundException(ServiceException):
     code: str = "NotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class TagException(ServiceException):
     code: str = "TagException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
 
 
 class UnsupportedOperationException(ServiceException):
     code: str = "UnsupportedOperationException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessageType]
+
+
+class XksKeyAlreadyInUseException(ServiceException):
+    code: str = "XksKeyAlreadyInUseException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class XksKeyInvalidConfigurationException(ServiceException):
+    code: str = "XksKeyInvalidConfigurationException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class XksKeyNotFoundException(ServiceException):
+    code: str = "XksKeyNotFoundException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class XksProxyIncorrectAuthenticationCredentialException(ServiceException):
+    code: str = "XksProxyIncorrectAuthenticationCredentialException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class XksProxyInvalidConfigurationException(ServiceException):
+    code: str = "XksProxyInvalidConfigurationException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class XksProxyInvalidResponseException(ServiceException):
+    code: str = "XksProxyInvalidResponseException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class XksProxyUriEndpointInUseException(ServiceException):
+    code: str = "XksProxyUriEndpointInUseException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class XksProxyUriInUseException(ServiceException):
+    code: str = "XksProxyUriInUseException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class XksProxyUriUnreachableException(ServiceException):
+    code: str = "XksProxyUriUnreachableException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class XksProxyVpcEndpointServiceInUseException(ServiceException):
+    code: str = "XksProxyVpcEndpointServiceInUseException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class XksProxyVpcEndpointServiceInvalidConfigurationException(ServiceException):
+    code: str = "XksProxyVpcEndpointServiceInvalidConfigurationException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class XksProxyVpcEndpointServiceNotFoundException(ServiceException):
+    code: str = "XksProxyVpcEndpointServiceNotFoundException"
+    sender_fault: bool = False
+    status_code: int = 400
 
 
 DateType = datetime
@@ -477,11 +548,22 @@ class CreateAliasRequest(ServiceRequest):
     TargetKeyId: KeyIdType
 
 
+class XksProxyAuthenticationCredentialType(TypedDict, total=False):
+    AccessKeyId: XksProxyAuthenticationAccessKeyIdType
+    RawSecretAccessKey: XksProxyAuthenticationRawSecretAccessKeyType
+
+
 class CreateCustomKeyStoreRequest(ServiceRequest):
     CustomKeyStoreName: CustomKeyStoreNameType
-    CloudHsmClusterId: CloudHsmClusterIdType
-    TrustAnchorCertificate: TrustAnchorCertificateType
-    KeyStorePassword: KeyStorePasswordType
+    CloudHsmClusterId: Optional[CloudHsmClusterIdType]
+    TrustAnchorCertificate: Optional[TrustAnchorCertificateType]
+    KeyStorePassword: Optional[KeyStorePasswordType]
+    CustomKeyStoreType: Optional[CustomKeyStoreType]
+    XksProxyUriEndpoint: Optional[XksProxyUriEndpointType]
+    XksProxyUriPath: Optional[XksProxyUriPathType]
+    XksProxyVpcEndpointServiceName: Optional[XksProxyVpcEndpointServiceNameType]
+    XksProxyAuthenticationCredential: Optional[XksProxyAuthenticationCredentialType]
+    XksProxyConnectivity: Optional[XksProxyConnectivityType]
 
 
 class CreateCustomKeyStoreResponse(TypedDict, total=False):
@@ -534,6 +616,11 @@ class CreateKeyRequest(ServiceRequest):
     BypassPolicyLockoutSafetyCheck: Optional[BooleanType]
     Tags: Optional[TagList]
     MultiRegion: Optional[NullableBooleanType]
+    XksKeyId: Optional[XksKeyIdType]
+
+
+class XksKeyConfigurationType(TypedDict, total=False):
+    Id: Optional[XksKeyIdType]
 
 
 MacAlgorithmSpecList = List[MacAlgorithmSpec]
@@ -581,10 +668,19 @@ class KeyMetadata(TypedDict, total=False):
     MultiRegionConfiguration: Optional[MultiRegionConfiguration]
     PendingDeletionWindowInDays: Optional[PendingWindowInDaysType]
     MacAlgorithms: Optional[MacAlgorithmSpecList]
+    XksKeyConfiguration: Optional[XksKeyConfigurationType]
 
 
 class CreateKeyResponse(TypedDict, total=False):
     KeyMetadata: Optional[KeyMetadata]
+
+
+class XksProxyConfigurationType(TypedDict, total=False):
+    Connectivity: Optional[XksProxyConnectivityType]
+    AccessKeyId: Optional[XksProxyAuthenticationAccessKeyIdType]
+    UriEndpoint: Optional[XksProxyUriEndpointType]
+    UriPath: Optional[XksProxyUriPathType]
+    VpcEndpointServiceName: Optional[XksProxyVpcEndpointServiceNameType]
 
 
 class CustomKeyStoresListEntry(TypedDict, total=False):
@@ -595,6 +691,8 @@ class CustomKeyStoresListEntry(TypedDict, total=False):
     ConnectionState: Optional[ConnectionStateType]
     ConnectionErrorCode: Optional[ConnectionErrorCodeType]
     CreationDate: Optional[DateType]
+    CustomKeyStoreType: Optional[CustomKeyStoreType]
+    XksProxyConfiguration: Optional[XksProxyConfigurationType]
 
 
 CustomKeyStoresList = List[CustomKeyStoresListEntry]
@@ -1025,6 +1123,11 @@ class UpdateCustomKeyStoreRequest(ServiceRequest):
     NewCustomKeyStoreName: Optional[CustomKeyStoreNameType]
     KeyStorePassword: Optional[KeyStorePasswordType]
     CloudHsmClusterId: Optional[CloudHsmClusterIdType]
+    XksProxyUriEndpoint: Optional[XksProxyUriEndpointType]
+    XksProxyUriPath: Optional[XksProxyUriPathType]
+    XksProxyVpcEndpointServiceName: Optional[XksProxyVpcEndpointServiceNameType]
+    XksProxyAuthenticationCredential: Optional[XksProxyAuthenticationCredentialType]
+    XksProxyConnectivity: Optional[XksProxyConnectivityType]
 
 
 class UpdateCustomKeyStoreResponse(TypedDict, total=False):
@@ -1098,9 +1201,15 @@ class KmsApi:
         self,
         context: RequestContext,
         custom_key_store_name: CustomKeyStoreNameType,
-        cloud_hsm_cluster_id: CloudHsmClusterIdType,
-        trust_anchor_certificate: TrustAnchorCertificateType,
-        key_store_password: KeyStorePasswordType,
+        cloud_hsm_cluster_id: CloudHsmClusterIdType = None,
+        trust_anchor_certificate: TrustAnchorCertificateType = None,
+        key_store_password: KeyStorePasswordType = None,
+        custom_key_store_type: CustomKeyStoreType = None,
+        xks_proxy_uri_endpoint: XksProxyUriEndpointType = None,
+        xks_proxy_uri_path: XksProxyUriPathType = None,
+        xks_proxy_vpc_endpoint_service_name: XksProxyVpcEndpointServiceNameType = None,
+        xks_proxy_authentication_credential: XksProxyAuthenticationCredentialType = None,
+        xks_proxy_connectivity: XksProxyConnectivityType = None,
     ) -> CreateCustomKeyStoreResponse:
         raise NotImplementedError
 
@@ -1132,6 +1241,7 @@ class KmsApi:
         bypass_policy_lockout_safety_check: BooleanType = None,
         tags: TagList = None,
         multi_region: NullableBooleanType = None,
+        xks_key_id: XksKeyIdType = None,
     ) -> CreateKeyResponse:
         raise NotImplementedError
 
@@ -1476,6 +1586,11 @@ class KmsApi:
         new_custom_key_store_name: CustomKeyStoreNameType = None,
         key_store_password: KeyStorePasswordType = None,
         cloud_hsm_cluster_id: CloudHsmClusterIdType = None,
+        xks_proxy_uri_endpoint: XksProxyUriEndpointType = None,
+        xks_proxy_uri_path: XksProxyUriPathType = None,
+        xks_proxy_vpc_endpoint_service_name: XksProxyVpcEndpointServiceNameType = None,
+        xks_proxy_authentication_credential: XksProxyAuthenticationCredentialType = None,
+        xks_proxy_connectivity: XksProxyConnectivityType = None,
     ) -> UpdateCustomKeyStoreResponse:
         raise NotImplementedError
 

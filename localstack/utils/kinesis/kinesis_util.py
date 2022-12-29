@@ -7,13 +7,13 @@ import traceback
 from localstack.utils.strings import truncate
 from localstack.utils.threads import FuncThread
 
-# set up local logger
-LOGGER = logging.getLogger(__name__)
+# set up logger
+LOG = logging.getLogger(__name__)
 
 
 class EventFileReaderThread(FuncThread):
     def __init__(self, events_file, callback, ready_mutex=None, fh_d_stream=None):
-        FuncThread.__init__(self, self.retrieve_loop, None)
+        FuncThread.__init__(self, self.retrieve_loop, None, name="kinesis-event-file-reader")
         self.events_file = events_file
         self.callback = callback
         self.ready_mutex = ready_mutex
@@ -28,21 +28,24 @@ class EventFileReaderThread(FuncThread):
         while self.running:
             try:
                 conn, client_addr = sock.accept()
-                thread = FuncThread(self.handle_connection, conn)
+                thread = FuncThread(
+                    self.handle_connection, conn, name="kinesis-event-file-reader-connectionhandler"
+                )
                 thread.start()
             except Exception as e:
-                LOGGER.error("Error dispatching client request: %s %s", e, traceback.format_exc())
+                LOG.error("Error dispatching client request: %s %s", e, traceback.format_exc())
         sock.close()
 
-    def handle_connection(self, conn):
+    def handle_connection(self, conn: socket):
         socket_file = conn.makefile()
         while self.running:
-            line = socket_file.readline()
-            if not line:
-                # end of socket input stream
-                break
-            line = line[:-1]
+            line = ""
             try:
+                line = socket_file.readline()
+                line = line.strip()
+                if not line:
+                    # end of socket input stream
+                    break
                 event = json.loads(line)
                 records = event["records"]
                 shard_id = event["shard_id"]
@@ -54,7 +57,7 @@ class EventFileReaderThread(FuncThread):
                 else:
                     self.callback(records)
             except Exception as e:
-                LOGGER.warning(
+                LOG.warning(
                     "Unable to process JSON line: '%s': %s %s. Callback: %s",
                     truncate(line),
                     e,

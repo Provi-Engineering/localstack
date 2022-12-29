@@ -1,4 +1,5 @@
 IMAGE_NAME ?= localstack/localstack
+IMAGE_NAME_PRO ?= $(IMAGE_NAME)-pro
 IMAGE_NAME_LIGHT ?= $(IMAGE_NAME)-light
 IMAGE_NAME_FULL ?= $(IMAGE_NAME)-full
 IMAGE_TAG ?= $(shell cat localstack/__init__.py | grep '^__version__ =' | sed "s/__version__ = ['\"]\(.*\)['\"].*/\1/")
@@ -55,16 +56,10 @@ install-test-only: venv
 install-dev: venv         ## Install developer requirements into venv
 	$(VENV_RUN); $(PIP_CMD) install $(PIP_OPTS) -e ".[cli,runtime,test,dev]"
 
-install: install-dev entrypoints init-testlibs  ## Install full dependencies into venv, and download third-party services
+install: install-dev entrypoints  ## Install full dependencies into venv
 
 entrypoints:              ## Run setup.py develop to build entry points
 	$(VENV_RUN); python setup.py plugins egg_info
-
-init:                     ## Initialize the infrastructure, make sure all libs are downloaded
-	$(VENV_RUN); python -m localstack.services.install libs
-
-init-testlibs:
-	$(VENV_RUN); python -m localstack.services.install testlibs
 
 dist: entrypoints        ## Build source and built (wheel) distributions of the current version
 	$(VENV_RUN); pip install --upgrade twine; python setup.py sdist bdist_wheel
@@ -83,23 +78,16 @@ docker-image-stats: 	  ## TODO remove when image size is acceptable
 	docker history $(IMAGE_NAME_FULL)
 
 # By default we export the full image
-TAG ?= $(IMAGE_NAME_FULL)
-# By default we use no suffix
-EXPORT_SUFFIX ?=
-docker-save-image: 		  ## Export the built Docker image
-	docker save $(TAG) -o target/localstack-docker-image$(EXPORT_SUFFIX)-$(PLATFORM).tar
+TAGS ?= $(IMAGE_NAME) $(IMAGE_NAME_PRO) $(IMAGE_NAME_LIGHT) $(IMAGE_NAME_FULL)
+docker-save-images: 		  ## Export the built Docker image
+	docker save -o target/localstack-docker-images-$(PLATFORM).tar $(TAGS)
 
-docker-save-image-light:
-	make EXPORT_SUFFIX="-light" TAG=$(IMAGE_NAME_LIGHT) docker-save-image
-
-# By default we export the full image
-TAG ?= $(IMAGE_NAME_FULL)
+# By default we export the community image
+TAG ?= $(IMAGE_NAME)
 # By default we load the result to the docker daemon
 DOCKER_BUILD_FLAGS ?= "--load"
 DOCKERFILE ?= "./Dockerfile"
 docker-build: 			  ## Build Docker image
-	# prepare
-	test -e 'localstack/infra/stepfunctions/StepFunctionsLocal.jar' || make init
 	# start build
 	# --add-host: Fix for Centos host OS
 	# --build-arg BUILDKIT_INLINE_CACHE=1: Instruct buildkit to inline the caching information into the image
@@ -130,13 +118,21 @@ docker-create-manifest:
 		${REPOSITORY}:${GIT_SHA}-i386 && \
 	docker manifest push ${REPOSITORY}:latest
 
+docker-build-full:   ## Build Full Docker image
+	make DOCKER_BUILD_FLAGS="--build-arg IMAGE_TYPE=full --load" \
+	  TAG=$(IMAGE_NAME_FULL) docker-build
+
+docker-build-pro: 	  	  ## Build Pro Docker image
+	make DOCKER_BUILD_FLAGS="--build-arg IMAGE_TYPE=pro --load" \
+	  TAG=$(IMAGE_NAME_PRO) docker-build
+
 docker-build-multiarch:   ## Build the Multi-Arch Full Docker Image
 	# Make sure to prepare your environment for cross-platform docker builds! (see doc/developer_guides/README.md)
 	# Multi-Platform builds cannot be loaded to the docker daemon from buildx, so we can't add "--load".
 	make DOCKER_BUILD_FLAGS="--platform linux/amd64,linux/arm64" docker-build
 
-SOURCE_IMAGE_NAME ?= $(IMAGE_NAME_FULL)
-TARGET_IMAGE_NAME ?= $(IMAGE_NAME_FULL)
+SOURCE_IMAGE_NAME ?= $(IMAGE_NAME)
+TARGET_IMAGE_NAME ?= $(IMAGE_NAME)
 docker-push-master: 	  ## Push a single platform-specific Docker image to registry IF we are currently on the master branch
 	(CURRENT_BRANCH=`(git rev-parse --abbrev-ref HEAD | grep '^master$$' || ((git branch -a | grep 'HEAD detached at [0-9a-zA-Z]*)') && git branch -a)) | grep '^[* ]*master$$' | sed 's/[* ]//g' || true`; \
 		test "$$CURRENT_BRANCH" != 'master' && echo "Not on master branch.") || \
@@ -161,13 +157,14 @@ docker-push-master: 	  ## Push a single platform-specific Docker image to regist
 				  docker push $(TARGET_IMAGE_NAME):latest-$(PLATFORM) \
 	)
 
-docker-push-master-all:		## Push Docker images of localstack, localstack-light, and localstack-full
-	make SOURCE_IMAGE_NAME=$(IMAGE_NAME_LIGHT) TARGET_IMAGE_NAME=$(IMAGE_NAME) docker-push-master
+docker-push-master-all:		## Push Docker images of localstack, localstack-pro, localstack-light, and localstack-full
+	make SOURCE_IMAGE_NAME=$(IMAGE_NAME) TARGET_IMAGE_NAME=$(IMAGE_NAME) docker-push-master
+	make SOURCE_IMAGE_NAME=$(IMAGE_NAME_PRO) TARGET_IMAGE_NAME=$(IMAGE_NAME_PRO) docker-push-master
 	make SOURCE_IMAGE_NAME=$(IMAGE_NAME_LIGHT) TARGET_IMAGE_NAME=$(IMAGE_NAME_LIGHT) docker-push-master
 	make SOURCE_IMAGE_NAME=$(IMAGE_NAME_FULL) TARGET_IMAGE_NAME=$(IMAGE_NAME_FULL) docker-push-master
 
-MANIFEST_IMAGE_NAME ?= $(IMAGE_NAME_FULL)
-docker-create-push-manifests:	## Create and push manifests for a docker image (default: full)
+MANIFEST_IMAGE_NAME ?= $(IMAGE_NAME)
+docker-create-push-manifests:	## Create and push manifests for a docker image (default: community)
 	(CURRENT_BRANCH=`(git rev-parse --abbrev-ref HEAD | grep '^master$$' || ((git branch -a | grep 'HEAD detached at [0-9a-zA-Z]*)') && git branch -a)) | grep '^[* ]*master$$' | sed 's/[* ]//g' || true`; \
 		test "$$CURRENT_BRANCH" != 'master' && echo "Not on master branch.") || \
 	((test "$$DOCKER_USERNAME" = '' || test "$$DOCKER_PASSWORD" = '' ) && \
@@ -196,23 +193,24 @@ docker-create-push-manifests:	## Create and push manifests for a docker image (d
 		docker manifest push $(MANIFEST_IMAGE_NAME):latest \
 	)
 
-docker-create-push-manifests-light:	## Create and push manifests for the light docker image
-	make MANIFEST_IMAGE_NAME=$(IMAGE_NAME_LIGHT) docker-create-push-manifests
+docker-create-push-manifests-light:	## Create and push manifests for all light docker images
 	make MANIFEST_IMAGE_NAME=$(IMAGE_NAME) docker-create-push-manifests
+	make MANIFEST_IMAGE_NAME=$(IMAGE_NAME_PRO) docker-create-push-manifests
+	make MANIFEST_IMAGE_NAME=$(IMAGE_NAME_LIGHT) docker-create-push-manifests
 
 docker-run-tests:		  ## Initializes the test environment and runs the tests in a docker container
 	# Remove argparse and dataclasses to fix https://github.com/pytest-dev/pytest/issues/5594
 	# Note: running "install-test-only" below, to avoid pulling in [runtime] extras from transitive dependencies
 	docker run -e LOCALSTACK_INTERNAL_TEST_COLLECT_METRIC=1 --entrypoint= -v `pwd`/tests/:/opt/code/localstack/tests/ -v `pwd`/target/:/opt/code/localstack/target/ \
 		$(IMAGE_NAME_FULL) \
-	    bash -c "make install-test-only && make init-testlibs && pip uninstall -y argparse dataclasses && DEBUG=$(DEBUG) LAMBDA_EXECUTOR=local PYTEST_LOGLEVEL=debug PYTEST_ARGS='$(PYTEST_ARGS)' COVERAGE_FILE='$(COVERAGE_FILE)' TEST_PATH='$(TEST_PATH)' make test-coverage"
+	    bash -c "make install-test-only && pip uninstall -y argparse dataclasses && DEBUG=$(DEBUG) LAMBDA_EXECUTOR=local PYTEST_LOGLEVEL=debug PYTEST_ARGS='$(PYTEST_ARGS)' COVERAGE_FILE='$(COVERAGE_FILE)' TEST_PATH='$(TEST_PATH)' make test-coverage"
 
 docker-run:        		  ## Run Docker image locally
 	($(VENV_RUN); bin/localstack start)
 
 docker-mount-run:
 	MOTO_DIR=$$(echo $$(pwd)/.venv/lib/python*/site-packages/moto | awk '{print $$NF}'); echo MOTO_DIR $$MOTO_DIR; \
-		DOCKER_FLAGS="$(DOCKER_FLAGS) -v `pwd`/localstack/constants.py:/opt/code/localstack/localstack/constants.py -v `pwd`/localstack/config.py:/opt/code/localstack/localstack/config.py -v `pwd`/localstack/plugins.py:/opt/code/localstack/localstack/plugins.py -v `pwd`/localstack/plugin:/opt/code/localstack/localstack/plugin -v `pwd`/localstack/runtime:/opt/code/localstack/localstack/runtime -v `pwd`/localstack/utils:/opt/code/localstack/localstack/utils -v `pwd`/localstack/services:/opt/code/localstack/localstack/services -v `pwd`/localstack/http:/opt/code/localstack/localstack/http -v `pwd`/localstack/contrib:/opt/code/localstack/localstack/contrib -v `pwd`/localstack/dashboard:/opt/code/localstack/localstack/dashboard -v `pwd`/tests:/opt/code/localstack/tests -v $$MOTO_DIR:/opt/code/localstack/.venv/lib/python3.10/site-packages/moto/" make docker-run
+		DOCKER_FLAGS="$(DOCKER_FLAGS) -v `pwd`/localstack/constants.py:/opt/code/localstack/localstack/constants.py -v `pwd`/localstack/config.py:/opt/code/localstack/localstack/config.py -v `pwd`/localstack/plugins.py:/opt/code/localstack/localstack/plugins.py -v `pwd`/localstack/plugin:/opt/code/localstack/localstack/plugin -v `pwd`/localstack/runtime:/opt/code/localstack/localstack/runtime -v `pwd`/localstack/utils:/opt/code/localstack/localstack/utils -v `pwd`/localstack/services:/opt/code/localstack/localstack/services -v `pwd`/localstack/http:/opt/code/localstack/localstack/http -v `pwd`/localstack/contrib:/opt/code/localstack/localstack/contrib -v `pwd`/tests:/opt/code/localstack/tests -v $$MOTO_DIR:/opt/code/localstack/.venv/lib/python3.10/site-packages/moto/" make docker-run
 
 docker-cp-coverage:
 	@echo 'Extracting .coverage file from Docker image'; \
@@ -239,7 +237,7 @@ test-docker-mount:		  ## Run automated tests in Docker (mounting local code)
 		PKG_DIR=$$(echo $$VENV_DIR/lib/python*/site-packages | awk '{print $$NF}'); \
 		PKG_DIR_CON=/opt/code/localstack/.venv/lib/python3.10/site-packages; \
 		echo "#!/usr/bin/env python" > /tmp/pytest.ls.bin; cat $$VENV_DIR/bin/pytest >> /tmp/pytest.ls.bin; chmod +x /tmp/pytest.ls.bin; \
-		DOCKER_FLAGS="-v `pwd`/tests:/opt/code/localstack/tests -v /tmp/pytest.ls.bin:/opt/code/localstack/.venv/bin/pytest -v $$PKG_DIR/py:$$PKG_DIR_CON/py -v $$PKG_DIR/pluggy:$$PKG_DIR_CON/pluggy -v $$PKG_DIR/iniconfig:$$PKG_DIR_CON/iniconfig -v $$PKG_DIR/packaging:$$PKG_DIR_CON/packaging -v $$PKG_DIR/pytest:$$PKG_DIR_CON/pytest -v $$PKG_DIR/_pytest:/opt/code/localstack/.venv/lib/python3.10/site-packages/_pytest" make test-docker-mount-code
+		DOCKER_FLAGS="-v `pwd`/tests:/opt/code/localstack/tests -v /tmp/pytest.ls.bin:/opt/code/localstack/.venv/bin/pytest -v $$PKG_DIR/deepdiff:$$PKG_DIR_CON/deepdiff -v $$PKG_DIR/ordered_set:$$PKG_DIR_CON/ordered_set -v $$PKG_DIR/py:$$PKG_DIR_CON/py -v $$PKG_DIR/pluggy:$$PKG_DIR_CON/pluggy -v $$PKG_DIR/iniconfig:$$PKG_DIR_CON/iniconfig -v $$PKG_DIR/jsonpath_ng:$$PKG_DIR_CON/jsonpath_ng -v $$PKG_DIR/packaging:$$PKG_DIR_CON/packaging -v $$PKG_DIR/pytest:$$PKG_DIR_CON/pytest -v $$PKG_DIR/pytest_httpserver:$$PKG_DIR_CON/pytest_httpserver -v $$PKG_DIR/_pytest:/opt/code/localstack/.venv/lib/python3.10/site-packages/_pytest" make test-docker-mount-code
 
 test-docker-mount-code:
 	PACKAGES_DIR=$$(echo $$(pwd)/.venv/lib/python*/site-packages | awk '{print $$NF}'); \
@@ -263,15 +261,18 @@ ci-pro-smoke-tests:
 	awslocal cloudtrail list-trails
 	awslocal cognito-idp list-user-pools --max-results 10
 	awslocal docdb describe-db-clusters
+	awslocal ecr describe-repositories
 	awslocal ecs list-clusters
 	awslocal emr list-clusters
+	awslocal elasticache describe-cache-clusters
 	awslocal glue get-databases
 	awslocal iot list-things
 	awslocal kafka list-clusters
 	awslocal lambda list-layers
 	awslocal mediastore list-containers
+	awslocal mwaa list-environments
 	awslocal qldb list-ledgers
-	awslocal rds create-db-cluster --db-cluster-identifier test-cluster --engine aurora-postgresql --database-name test --master-username master --master-user-password secret99 --db-subnet-group-name mysubnetgroup --db-cluster-parameter-group-name mydbclusterparametergroup
+	awslocal rds create-db-cluster --db-cluster-identifier test-cluster --engine aurora-postgresql --database-name test --master-username master --master-user-password secret99 --db-subnet-group-name mysubnetgroup
 	awslocal rds describe-db-instances
 	awslocal s3 mb s3://test-bucket
 	awslocal timestream-write create-database --database-name db1
@@ -282,20 +283,19 @@ lint:              		  ## Run code linter to check code style
 	($(VENV_RUN); python -m pflake8 --show-source)
 
 lint-modified:     		  ## Run code linter on modified files
-	($(VENV_RUN); python -m pflake8 --show-source `git ls-files -m | grep '\.py$$' | xargs` )
+	($(VENV_RUN); python -m pflake8 --show-source `git diff --diff-filter=d --name-only HEAD | grep '\.py$$' | xargs` )
 
 format:            		  ## Run black and isort code formatter
 	($(VENV_RUN); python -m isort localstack tests; python -m black localstack tests )
 
 format-modified:   		  ## Run black and isort code formatter on modified files
-	($(VENV_RUN); python -m isort `git ls-files -m | grep '\.py$$' | xargs`; python -m black `git ls-files -m | grep '\.py$$' | xargs` )
+	($(VENV_RUN); python -m isort `git diff --diff-filter=d --name-only HEAD | grep '\.py$$' | xargs`; python -m black `git diff --diff-filter=d --name-only HEAD | grep '\.py$$' | xargs` )
 
 init-precommit:    		  ## install te pre-commit hook into your local git repository
 	($(VENV_RUN); pre-commit install)
 
 clean:             		  ## Clean up (npm dependencies, downloaded infrastructure code, compiled Java classes)
 	rm -rf .filesystem
-	rm -rf localstack/dashboard/web/node_modules
 	# TODO: remove localstack/infra/ as it's no longer used
 	rm -rf localstack/infra/amazon-kinesis-client
 	rm -rf localstack/infra/elasticsearch
@@ -313,4 +313,4 @@ clean-dist:				  ## Clean up python distribution directories
 	rm -rf dist/ build/
 	rm -rf *.egg-info
 
-.PHONY: usage venv freeze install-basic install-runtime install-test install-dev install entrypoints init init-testlibs dist publish coveralls start docker-save-image docker-save-image-light docker-build docker-build-light docker-build-multi-platform docker-push-master docker-push-master-all docker-create-push-manifests docker-create-push-manifests-light docker-run-tests docker-run docker-mount-run docker-build-lambdas docker-cp-coverage test test-coverage test-docker test-docker-mount test-docker-mount-code ci-pro-smoke-tests lint lint-modified format format-modified init-precommit clean clean-dist vagrant-start vagrant-stop infra
+.PHONY: usage venv freeze install-basic install-runtime install-test install-dev install entrypoints dist publish coveralls start docker-save-images docker-build docker-build-light docker-build-multi-platform docker-push-master docker-push-master-all docker-create-push-manifests docker-create-push-manifests-light docker-run-tests docker-run docker-mount-run docker-build-lambdas docker-cp-coverage test test-coverage test-docker test-docker-mount test-docker-mount-code ci-pro-smoke-tests lint lint-modified format format-modified init-precommit clean clean-dist vagrant-start vagrant-stop infra

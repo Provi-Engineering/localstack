@@ -20,6 +20,8 @@ AwsRegion = str
 BaseResourceId = str
 Boolean = bool
 ChannelName = str
+ClientToken = str
+ComplianceScore = str
 ConfigRuleName = str
 Configuration = str
 ConfigurationAggregatorArn = str
@@ -37,6 +39,8 @@ DescribeConformancePackComplianceLimit = int
 DescribePendingAggregationRequestsLimit = int
 EmptiableStringWithCharLimit256 = str
 ErrorMessage = str
+EvaluationContextIdentifier = str
+EvaluationTimeout = int
 Expression = str
 FieldName = str
 GetConformancePackComplianceDetailsLimit = int
@@ -44,6 +48,7 @@ GroupByAPILimit = int
 IncludeGlobalResourceTypes = bool
 Integer = int
 Limit = int
+ListResourceEvaluationsPageItemLimit = int
 Name = str
 NextToken = str
 OrganizationConfigRuleName = str
@@ -62,12 +67,16 @@ QueryName = str
 RecorderName = str
 RelatedEvent = str
 RelationshipName = str
+ResourceConfiguration = str
+ResourceEvaluationId = str
 ResourceId = str
 ResourceName = str
 ResourceTypeString = str
 RetentionConfigurationName = str
 RetentionPeriodInDays = int
 RuleLimit = int
+SSMDocumentName = str
+SSMDocumentVersion = str
 SchemaVersionId = str
 StackArn = str
 String = str
@@ -154,6 +163,11 @@ class DeliveryStatus(str):
     Success = "Success"
     Failure = "Failure"
     Not_Applicable = "Not_Applicable"
+
+
+class EvaluationMode(str):
+    DETECTIVE = "DETECTIVE"
+    PROACTIVE = "PROACTIVE"
 
 
 class EventSource(str):
@@ -263,10 +277,20 @@ class RemediationTargetType(str):
     SSM_DOCUMENT = "SSM_DOCUMENT"
 
 
+class ResourceConfigurationSchemaType(str):
+    CFN_RESOURCE_SCHEMA = "CFN_RESOURCE_SCHEMA"
+
+
 class ResourceCountGroupKey(str):
     RESOURCE_TYPE = "RESOURCE_TYPE"
     ACCOUNT_ID = "ACCOUNT_ID"
     AWS_REGION = "AWS_REGION"
+
+
+class ResourceEvaluationStatus(str):
+    IN_PROGRESS = "IN_PROGRESS"
+    FAILED = "FAILED"
+    SUCCEEDED = "SUCCEEDED"
 
 
 class ResourceType(str):
@@ -392,14 +416,75 @@ class ResourceType(str):
     AWS_GuardDuty_Detector = "AWS::GuardDuty::Detector"
     AWS_EMR_SecurityConfiguration = "AWS::EMR::SecurityConfiguration"
     AWS_SageMaker_CodeRepository = "AWS::SageMaker::CodeRepository"
+    AWS_Route53Resolver_ResolverEndpoint = "AWS::Route53Resolver::ResolverEndpoint"
+    AWS_Route53Resolver_ResolverRule = "AWS::Route53Resolver::ResolverRule"
+    AWS_Route53Resolver_ResolverRuleAssociation = "AWS::Route53Resolver::ResolverRuleAssociation"
+    AWS_DMS_ReplicationSubnetGroup = "AWS::DMS::ReplicationSubnetGroup"
+    AWS_DMS_EventSubscription = "AWS::DMS::EventSubscription"
+    AWS_MSK_Cluster = "AWS::MSK::Cluster"
+    AWS_StepFunctions_Activity = "AWS::StepFunctions::Activity"
+    AWS_WorkSpaces_Workspace = "AWS::WorkSpaces::Workspace"
+    AWS_WorkSpaces_ConnectionAlias = "AWS::WorkSpaces::ConnectionAlias"
+    AWS_SageMaker_Model = "AWS::SageMaker::Model"
+    AWS_ElasticLoadBalancingV2_Listener = "AWS::ElasticLoadBalancingV2::Listener"
+    AWS_StepFunctions_StateMachine = "AWS::StepFunctions::StateMachine"
+    AWS_Batch_JobQueue = "AWS::Batch::JobQueue"
+    AWS_Batch_ComputeEnvironment = "AWS::Batch::ComputeEnvironment"
+    AWS_AccessAnalyzer_Analyzer = "AWS::AccessAnalyzer::Analyzer"
+    AWS_Athena_WorkGroup = "AWS::Athena::WorkGroup"
+    AWS_Athena_DataCatalog = "AWS::Athena::DataCatalog"
+    AWS_Detective_Graph = "AWS::Detective::Graph"
+    AWS_GlobalAccelerator_Accelerator = "AWS::GlobalAccelerator::Accelerator"
+    AWS_GlobalAccelerator_EndpointGroup = "AWS::GlobalAccelerator::EndpointGroup"
+    AWS_GlobalAccelerator_Listener = "AWS::GlobalAccelerator::Listener"
+    AWS_EC2_TransitGatewayAttachment = "AWS::EC2::TransitGatewayAttachment"
+    AWS_EC2_TransitGatewayRouteTable = "AWS::EC2::TransitGatewayRouteTable"
+    AWS_DMS_Certificate = "AWS::DMS::Certificate"
+    AWS_AppConfig_Application = "AWS::AppConfig::Application"
+    AWS_AppSync_GraphQLApi = "AWS::AppSync::GraphQLApi"
+    AWS_DataSync_LocationSMB = "AWS::DataSync::LocationSMB"
+    AWS_DataSync_LocationFSxLustre = "AWS::DataSync::LocationFSxLustre"
+    AWS_DataSync_LocationS3 = "AWS::DataSync::LocationS3"
+    AWS_DataSync_LocationEFS = "AWS::DataSync::LocationEFS"
+    AWS_DataSync_Task = "AWS::DataSync::Task"
+    AWS_DataSync_LocationNFS = "AWS::DataSync::LocationNFS"
+    AWS_EC2_NetworkInsightsAccessScopeAnalysis = "AWS::EC2::NetworkInsightsAccessScopeAnalysis"
+    AWS_EKS_FargateProfile = "AWS::EKS::FargateProfile"
+    AWS_Glue_Job = "AWS::Glue::Job"
+    AWS_GuardDuty_ThreatIntelSet = "AWS::GuardDuty::ThreatIntelSet"
+    AWS_GuardDuty_IPSet = "AWS::GuardDuty::IPSet"
+    AWS_SageMaker_Workteam = "AWS::SageMaker::Workteam"
+    AWS_SageMaker_NotebookInstanceLifecycleConfig = (
+        "AWS::SageMaker::NotebookInstanceLifecycleConfig"
+    )
+    AWS_ServiceDiscovery_Service = "AWS::ServiceDiscovery::Service"
+    AWS_ServiceDiscovery_PublicDnsNamespace = "AWS::ServiceDiscovery::PublicDnsNamespace"
+    AWS_SES_ContactList = "AWS::SES::ContactList"
+    AWS_SES_ConfigurationSet = "AWS::SES::ConfigurationSet"
+    AWS_Route53_HostedZone = "AWS::Route53::HostedZone"
 
 
 class ResourceValueType(str):
     RESOURCE_ID = "RESOURCE_ID"
 
 
+class SortBy(str):
+    SCORE = "SCORE"
+
+
+class SortOrder(str):
+    ASCENDING = "ASCENDING"
+    DESCENDING = "DESCENDING"
+
+
 class ConformancePackTemplateValidationException(ServiceException):
     code: str = "ConformancePackTemplateValidationException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class IdempotentParameterMismatch(ServiceException):
+    code: str = "IdempotentParameterMismatch"
     sender_fault: bool = False
     status_code: int = 400
 
@@ -684,7 +769,6 @@ class ResourceConcurrentModificationException(ServiceException):
     code: str = "ResourceConcurrentModificationException"
     sender_fault: bool = False
     status_code: int = 400
-    message: Optional[ErrorMessage]
 
 
 class ResourceInUseException(ServiceException):
@@ -811,11 +895,13 @@ class EvaluationResultQualifier(TypedDict, total=False):
     ConfigRuleName: Optional[ConfigRuleName]
     ResourceType: Optional[StringWithCharLimit256]
     ResourceId: Optional[BaseResourceId]
+    EvaluationMode: Optional[EvaluationMode]
 
 
 class EvaluationResultIdentifier(TypedDict, total=False):
     EvaluationResultQualifier: Optional[EvaluationResultQualifier]
     OrderingTimestamp: Optional[Date]
+    ResourceEvaluationId: Optional[ResourceEvaluationId]
 
 
 class AggregateEvaluationResult(TypedDict, total=False):
@@ -954,6 +1040,13 @@ class ConfigExportDeliveryInfo(TypedDict, total=False):
     nextDeliveryTime: Optional[Date]
 
 
+class EvaluationModeConfiguration(TypedDict, total=False):
+    Mode: Optional[EvaluationMode]
+
+
+EvaluationModes = List[EvaluationModeConfiguration]
+
+
 class CustomPolicyDetails(TypedDict, total=False):
     PolicyRuntime: PolicyRuntime
     PolicyText: PolicyText
@@ -994,6 +1087,7 @@ class ConfigRule(TypedDict, total=False):
     MaximumExecutionFrequency: Optional[MaximumExecutionFrequency]
     ConfigRuleState: Optional[ConfigRuleState]
     CreatedBy: Optional[StringWithCharLimit256]
+    EvaluationModes: Optional[EvaluationModes]
 
 
 class ConfigRuleComplianceFilters(TypedDict, total=False):
@@ -1136,6 +1230,21 @@ class ConformancePackComplianceFilters(TypedDict, total=False):
 
 
 ConformancePackComplianceResourceIds = List[StringWithCharLimit256]
+LastUpdatedTime = datetime
+
+
+class ConformancePackComplianceScore(TypedDict, total=False):
+    Score: Optional[ComplianceScore]
+    ConformancePackName: Optional[ConformancePackName]
+    LastUpdatedTime: Optional[LastUpdatedTime]
+
+
+ConformancePackComplianceScores = List[ConformancePackComplianceScore]
+ConformancePackNameFilter = List[ConformancePackName]
+
+
+class ConformancePackComplianceScoresFilters(TypedDict, total=False):
+    ConformancePackNames: ConformancePackNameFilter
 
 
 class ConformancePackComplianceSummary(TypedDict, total=False):
@@ -1144,6 +1253,11 @@ class ConformancePackComplianceSummary(TypedDict, total=False):
 
 
 ConformancePackComplianceSummaryList = List[ConformancePackComplianceSummary]
+
+
+class TemplateSSMDocumentDetails(TypedDict, total=False):
+    DocumentName: SSMDocumentName
+    DocumentVersion: Optional[SSMDocumentVersion]
 
 
 class ConformancePackInputParameter(TypedDict, total=False):
@@ -1163,6 +1277,7 @@ class ConformancePackDetail(TypedDict, total=False):
     ConformancePackInputParameters: Optional[ConformancePackInputParameters]
     LastUpdateRequestedTime: Optional[Date]
     CreatedBy: Optional[StringWithCharLimit256]
+    TemplateSSMDocumentDetails: Optional[TemplateSSMDocumentDetails]
 
 
 ConformancePackDetailList = List[ConformancePackDetail]
@@ -1410,9 +1525,14 @@ class DescribeConfigRuleEvaluationStatusResponse(TypedDict, total=False):
     NextToken: Optional[String]
 
 
+class DescribeConfigRulesFilters(TypedDict, total=False):
+    EvaluationMode: Optional[EvaluationMode]
+
+
 class DescribeConfigRulesRequest(ServiceRequest):
     ConfigRuleNames: Optional[ConfigRuleNames]
     NextToken: Optional[String]
+    Filters: Optional[DescribeConfigRulesFilters]
 
 
 class DescribeConfigRulesResponse(TypedDict, total=False):
@@ -1815,6 +1935,10 @@ class Evaluation(TypedDict, total=False):
     OrderingTimestamp: OrderingTimestamp
 
 
+class EvaluationContext(TypedDict, total=False):
+    EvaluationContextIdentifier: Optional[EvaluationContextIdentifier]
+
+
 class EvaluationResult(TypedDict, total=False):
     EvaluationResultIdentifier: Optional[EvaluationResultIdentifier]
     ComplianceType: Optional[ComplianceType]
@@ -1825,6 +1949,13 @@ class EvaluationResult(TypedDict, total=False):
 
 
 EvaluationResults = List[EvaluationResult]
+
+
+class EvaluationStatus(TypedDict, total=False):
+    Status: ResourceEvaluationStatus
+    FailureReason: Optional[StringWithCharLimit1024]
+
+
 Evaluations = List[Evaluation]
 
 
@@ -1958,10 +2089,11 @@ class GetComplianceDetailsByConfigRuleResponse(TypedDict, total=False):
 
 
 class GetComplianceDetailsByResourceRequest(ServiceRequest):
-    ResourceType: StringWithCharLimit256
-    ResourceId: BaseResourceId
+    ResourceType: Optional[StringWithCharLimit256]
+    ResourceId: Optional[BaseResourceId]
     ComplianceTypes: Optional[ComplianceTypes]
     NextToken: Optional[String]
+    ResourceEvaluationId: Optional[ResourceEvaluationId]
 
 
 class GetComplianceDetailsByResourceResponse(TypedDict, total=False):
@@ -2122,6 +2254,27 @@ class GetResourceConfigHistoryResponse(TypedDict, total=False):
     nextToken: Optional[NextToken]
 
 
+class GetResourceEvaluationSummaryRequest(ServiceRequest):
+    ResourceEvaluationId: ResourceEvaluationId
+
+
+class ResourceDetails(TypedDict, total=False):
+    ResourceId: BaseResourceId
+    ResourceType: StringWithCharLimit256
+    ResourceConfiguration: ResourceConfiguration
+    ResourceConfigurationSchemaType: Optional[ResourceConfigurationSchemaType]
+
+
+class GetResourceEvaluationSummaryResponse(TypedDict, total=False):
+    ResourceEvaluationId: Optional[ResourceEvaluationId]
+    EvaluationMode: Optional[EvaluationMode]
+    EvaluationStatus: Optional[EvaluationStatus]
+    EvaluationStartTimestamp: Optional[Date]
+    Compliance: Optional[ComplianceType]
+    EvaluationContext: Optional[EvaluationContext]
+    ResourceDetails: Optional[ResourceDetails]
+
+
 class GetStoredQueryRequest(ServiceRequest):
     QueryName: QueryName
 
@@ -2158,6 +2311,19 @@ class ListAggregateDiscoveredResourcesResponse(TypedDict, total=False):
     NextToken: Optional[NextToken]
 
 
+class ListConformancePackComplianceScoresRequest(ServiceRequest):
+    Filters: Optional[ConformancePackComplianceScoresFilters]
+    SortOrder: Optional[SortOrder]
+    SortBy: Optional[SortBy]
+    Limit: Optional[PageSizeLimit]
+    NextToken: Optional[NextToken]
+
+
+class ListConformancePackComplianceScoresResponse(TypedDict, total=False):
+    NextToken: Optional[NextToken]
+    ConformancePackComplianceScores: ConformancePackComplianceScores
+
+
 ResourceIdList = List[ResourceId]
 
 
@@ -2186,6 +2352,37 @@ ResourceIdentifierList = List[ResourceIdentifier]
 class ListDiscoveredResourcesResponse(TypedDict, total=False):
     resourceIdentifiers: Optional[ResourceIdentifierList]
     nextToken: Optional[NextToken]
+
+
+class TimeWindow(TypedDict, total=False):
+    StartTime: Optional[Date]
+    EndTime: Optional[Date]
+
+
+class ResourceEvaluationFilters(TypedDict, total=False):
+    EvaluationMode: Optional[EvaluationMode]
+    TimeWindow: Optional[TimeWindow]
+    EvaluationContextIdentifier: Optional[EvaluationContextIdentifier]
+
+
+class ListResourceEvaluationsRequest(ServiceRequest):
+    Filters: Optional[ResourceEvaluationFilters]
+    Limit: Optional[ListResourceEvaluationsPageItemLimit]
+    NextToken: Optional[String]
+
+
+class ResourceEvaluation(TypedDict, total=False):
+    ResourceEvaluationId: Optional[ResourceEvaluationId]
+    EvaluationMode: Optional[EvaluationMode]
+    EvaluationStartTimestamp: Optional[Date]
+
+
+ResourceEvaluations = List[ResourceEvaluation]
+
+
+class ListResourceEvaluationsResponse(TypedDict, total=False):
+    ResourceEvaluations: Optional[ResourceEvaluations]
+    NextToken: Optional[String]
 
 
 class ListStoredQueriesRequest(ServiceRequest):
@@ -2281,6 +2478,7 @@ class PutConformancePackRequest(ServiceRequest):
     DeliveryS3Bucket: Optional[DeliveryS3Bucket]
     DeliveryS3KeyPrefix: Optional[DeliveryS3KeyPrefix]
     ConformancePackInputParameters: Optional[ConformancePackInputParameters]
+    TemplateSSMDocumentDetails: Optional[TemplateSSMDocumentDetails]
 
 
 class PutConformancePackResponse(TypedDict, total=False):
@@ -2435,6 +2633,18 @@ class StartRemediationExecutionRequest(ServiceRequest):
 class StartRemediationExecutionResponse(TypedDict, total=False):
     FailureMessage: Optional[String]
     FailedItems: Optional[ResourceKeys]
+
+
+class StartResourceEvaluationRequest(ServiceRequest):
+    ResourceDetails: ResourceDetails
+    EvaluationContext: Optional[EvaluationContext]
+    EvaluationMode: EvaluationMode
+    EvaluationTimeout: Optional[EvaluationTimeout]
+    ClientToken: Optional[ClientToken]
+
+
+class StartResourceEvaluationResponse(TypedDict, total=False):
+    ResourceEvaluationId: Optional[ResourceEvaluationId]
 
 
 class StopConfigurationRecorderRequest(ServiceRequest):
@@ -2648,6 +2858,7 @@ class ConfigApi:
         context: RequestContext,
         config_rule_names: ConfigRuleNames = None,
         next_token: String = None,
+        filters: DescribeConfigRulesFilters = None,
     ) -> DescribeConfigRulesResponse:
         raise NotImplementedError
 
@@ -2891,10 +3102,11 @@ class ConfigApi:
     def get_compliance_details_by_resource(
         self,
         context: RequestContext,
-        resource_type: StringWithCharLimit256,
-        resource_id: BaseResourceId,
+        resource_type: StringWithCharLimit256 = None,
+        resource_id: BaseResourceId = None,
         compliance_types: ComplianceTypes = None,
         next_token: String = None,
+        resource_evaluation_id: ResourceEvaluationId = None,
     ) -> GetComplianceDetailsByResourceResponse:
         raise NotImplementedError
 
@@ -2990,6 +3202,12 @@ class ConfigApi:
     ) -> GetResourceConfigHistoryResponse:
         raise NotImplementedError
 
+    @handler("GetResourceEvaluationSummary")
+    def get_resource_evaluation_summary(
+        self, context: RequestContext, resource_evaluation_id: ResourceEvaluationId
+    ) -> GetResourceEvaluationSummaryResponse:
+        raise NotImplementedError
+
     @handler("GetStoredQuery")
     def get_stored_query(
         self, context: RequestContext, query_name: QueryName
@@ -3008,6 +3226,18 @@ class ConfigApi:
     ) -> ListAggregateDiscoveredResourcesResponse:
         raise NotImplementedError
 
+    @handler("ListConformancePackComplianceScores")
+    def list_conformance_pack_compliance_scores(
+        self,
+        context: RequestContext,
+        filters: ConformancePackComplianceScoresFilters = None,
+        sort_order: SortOrder = None,
+        sort_by: SortBy = None,
+        limit: PageSizeLimit = None,
+        next_token: NextToken = None,
+    ) -> ListConformancePackComplianceScoresResponse:
+        raise NotImplementedError
+
     @handler("ListDiscoveredResources")
     def list_discovered_resources(
         self,
@@ -3019,6 +3249,16 @@ class ConfigApi:
         include_deleted_resources: Boolean = None,
         next_token: NextToken = None,
     ) -> ListDiscoveredResourcesResponse:
+        raise NotImplementedError
+
+    @handler("ListResourceEvaluations")
+    def list_resource_evaluations(
+        self,
+        context: RequestContext,
+        filters: ResourceEvaluationFilters = None,
+        limit: ListResourceEvaluationsPageItemLimit = None,
+        next_token: String = None,
+    ) -> ListResourceEvaluationsResponse:
         raise NotImplementedError
 
     @handler("ListStoredQueries")
@@ -3080,6 +3320,7 @@ class ConfigApi:
         delivery_s3_bucket: DeliveryS3Bucket = None,
         delivery_s3_key_prefix: DeliveryS3KeyPrefix = None,
         conformance_pack_input_parameters: ConformancePackInputParameters = None,
+        template_ssm_document_details: TemplateSSMDocumentDetails = None,
     ) -> PutConformancePackResponse:
         raise NotImplementedError
 
@@ -3214,6 +3455,18 @@ class ConfigApi:
     def start_remediation_execution(
         self, context: RequestContext, config_rule_name: ConfigRuleName, resource_keys: ResourceKeys
     ) -> StartRemediationExecutionResponse:
+        raise NotImplementedError
+
+    @handler("StartResourceEvaluation")
+    def start_resource_evaluation(
+        self,
+        context: RequestContext,
+        resource_details: ResourceDetails,
+        evaluation_mode: EvaluationMode,
+        evaluation_context: EvaluationContext = None,
+        evaluation_timeout: EvaluationTimeout = None,
+        client_token: ClientToken = None,
+    ) -> StartResourceEvaluationResponse:
         raise NotImplementedError
 
     @handler("StopConfigurationRecorder")

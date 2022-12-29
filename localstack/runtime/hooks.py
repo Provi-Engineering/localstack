@@ -4,9 +4,9 @@ from plugin import PluginManager, plugin
 
 # plugin namespace constants
 HOOKS_CONFIGURE_LOCALSTACK_CONTAINER = "localstack.hooks.configure_localstack_container"
-HOOKS_INSTALL = "localstack.hooks.install"
 HOOKS_ON_INFRA_READY = "localstack.hooks.on_infra_ready"
 HOOKS_ON_INFRA_START = "localstack.hooks.on_infra_start"
+HOOKS_ON_INFRA_SHUTDOWN = "localstack.hooks.on_infra_shutdown"
 HOOKS_PREPARE_HOST = "localstack.hooks.prepare_host"
 
 
@@ -72,9 +72,6 @@ class HookManager(PluginManager):
 configure_localstack_container = hook_spec(HOOKS_CONFIGURE_LOCALSTACK_CONTAINER)
 """Hooks to configure the LocalStack container before it starts. Executed on the host when invoking the CLI."""
 
-install = hook_spec(HOOKS_INSTALL)
-"""Additional programmatic installers."""
-
 prepare_host = hook_spec(HOOKS_PREPARE_HOST)
 """Hooks to prepare the host that's starting LocalStack. Executed on the host when invoking the CLI."""
 
@@ -83,4 +80,7 @@ on_infra_start = hook_spec(HOOKS_ON_INFRA_START)
 
 on_infra_ready = hook_spec(HOOKS_ON_INFRA_READY)
 """Hooks that are execute after all startup hooks have been executed, and the LocalStack infrastructure has become
-available. """
+available."""
+
+on_infra_shutdown = hook_spec(HOOKS_ON_INFRA_SHUTDOWN)
+"""Hooks that are execute when localstack shuts down."""

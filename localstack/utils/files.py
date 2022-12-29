@@ -39,7 +39,7 @@ def cache_dir() -> Path:
     from localstack.utils.platform import is_linux, is_mac_os, is_windows
 
     if is_windows():
-        return Path("%LOCALAPPDATA%", "cache", "localstack")
+        return Path(os.path.expandvars(r"%LOCALAPPDATA%\cache\localstack"))
     if is_mac_os():
         return Path.home() / "Library" / "Caches" / "localstack"
     if is_linux():
@@ -253,9 +253,9 @@ def cleanup_tmp_files():
     del TMP_FILES[:]
 
 
-def new_tmp_file() -> str:
+def new_tmp_file(suffix: str = None) -> str:
     """Return a path to a new temporary file."""
-    tmp_file, tmp_path = tempfile.mkstemp()
+    tmp_file, tmp_path = tempfile.mkstemp(suffix=suffix)
     os.close(tmp_file)
     TMP_FILES.append(tmp_path)
     return tmp_path

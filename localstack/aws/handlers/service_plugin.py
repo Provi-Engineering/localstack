@@ -1,11 +1,14 @@
 """Handlers extending the base logic of service handlers with lazy-loading and plugin mechanisms."""
 import logging
 import threading
+from typing import Optional
 
 from localstack.http import Response
 from localstack.services.plugins import Service, ServiceManager
+from localstack.utils.sync import SynchronizedDefaultDict
 
 from ..api import RequestContext
+from ..api.core import ServiceOperation
 from ..chain import Handler, HandlerChain
 from ..proxy import AwsApiListener
 from .legacy import LegacyPluginHandler
@@ -27,7 +30,7 @@ class ServiceLoader(Handler):
         """
         self.service_manager = service_manager
         self.service_request_router = service_request_router
-        self.mutex = threading.RLock()
+        self.service_locks = SynchronizedDefaultDict(threading.RLock)
 
     def __call__(self, chain: HandlerChain, context: RequestContext, response: Response):
         return self.require_service(chain, context, response)
@@ -36,25 +39,24 @@ class ServiceLoader(Handler):
         if not context.service:
             return
 
+        service_name: str = context.service.service_name
+        if not self.service_manager.exists(service_name):
+            raise NotImplementedError
+
+        service_operation: Optional[ServiceOperation] = context.service_operation
         request_router = self.service_request_router
 
-        # verify that we have a route for this request
-        service_operation = context.service_operation
+        # Ensure the Service is loaded and set to ServiceState.RUNNING if not in an erroneous state.
+        service_plugin: Service = self.service_manager.require(service_name)
+
+        # Continue adding service skelethon and handlers to the router if these are missing.
         if service_operation in request_router.handlers:
             return
 
-        # FIXME: this blocks all requests to other services, so a mutex list per-service would be useful
-        with self.mutex:
+        with self.service_locks[context.service.service_name]:
             # try again to avoid race conditions
             if service_operation in request_router.handlers:
                 return
-
-            service_name = context.service.service_name
-            if not self.service_manager.exists(service_name):
-                raise NotImplementedError
-
-            service_plugin: Service = self.service_manager.require(service_name)
-
             if isinstance(service_plugin, Service):
                 if type(service_plugin.listener) == AwsApiListener:
                     request_router.add_skeleton(service_plugin.listener.skeleton)
@@ -62,7 +64,6 @@ class ServiceLoader(Handler):
                     request_router.add_handler(service_operation, LegacyPluginHandler())
             else:
                 LOG.warning(
-                    "found plugin for %s, but cannot attach service plugin of type %s",
-                    service_name,
-                    type(service_plugin),
+                    f"found plugin for '{service_name}', "
+                    f"but cannot attach service plugin of type '{type(service_plugin)}'",
                 )

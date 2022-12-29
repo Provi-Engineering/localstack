@@ -45,8 +45,8 @@ def _setup_cli_debug():
 @click.option("--debug", is_flag=True, help="Enable CLI debugging mode")
 @click.option("--profile", type=str, help="Set the configuration profile")
 def localstack(debug, profile):
-    if profile:
-        os.environ["CONFIG_PROFILE"] = profile
+    # --profile is read manually in localstack.cli.main because it needs to be read before localstack.config is read
+
     if debug:
         _setup_cli_debug()
 
@@ -77,7 +77,6 @@ def localstack_status(ctx):
     name="docker", help="Query information about the LocalStack Docker image and runtime"
 )
 @click.option("--format", type=click.Choice(["table", "plain", "dict", "json"]), default="table")
-@publish_invocation
 def cmd_status_docker(format):
     with console.status("Querying Docker status"):
         print_docker_status(format)
@@ -85,14 +84,13 @@ def cmd_status_docker(format):
 
 @localstack_status.command(name="services", help="Query information about running services")
 @click.option("--format", type=click.Choice(["table", "plain", "dict", "json"]), default="table")
-@publish_invocation
 def cmd_status_services(format):
     import requests
 
     url = config.get_edge_url()
 
     try:
-        health = requests.get(f"{url}/health", timeout=2)
+        health = requests.get(f"{url}/_localstack/health", timeout=2)
         doc = health.json()
         services = doc.get("services", [])
         if format == "table":
@@ -145,7 +143,15 @@ def cmd_start(docker: bool, host: bool, no_banner: bool, detached: bool):
         console.rule("LocalStack Runtime Log (press [bold][yellow]CTRL-C[/yellow][/bold] to quit)")
 
     if host:
-        bootstrap.start_infra_locally()
+        try:
+            bootstrap.start_infra_locally()
+        except ImportError:
+            if config.DEBUG:
+                console.print_exception()
+            raise click.ClickException(
+                "It appears you have a light install of localstack which only supports running in docker\n"
+                "If you would like to use --host, please reinstall localstack using `pip install localstack[runtime]`"
+            )
     else:
         if detached:
             bootstrap.start_infra_in_docker_detached(console)
@@ -180,12 +186,19 @@ def cmd_stop():
 )
 @publish_invocation
 def cmd_logs(follow: bool):
+    from localstack.utils.bootstrap import LocalstackContainer
     from localstack.utils.docker_utils import DOCKER_CLIENT
 
     container_name = config.MAIN_CONTAINER_NAME
+    logfile = LocalstackContainer(container_name).logfile
 
     if not DOCKER_CLIENT.is_container_running(container_name):
         console.print("localstack container not running")
+        if os.path.exists(logfile):
+            console.print("printing logs from previous run")
+            with open(logfile) as fd:
+                for line in fd:
+                    click.echo(line, nl=False)
         sys.exit(1)
 
     if follow:

@@ -3,12 +3,13 @@ import json
 import logging
 import os
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import requests
 from werkzeug.exceptions import NotFound
 
 from localstack import config, constants
+from localstack.deprecations import deprecated_endpoint
 from localstack.http import Request, Response, Router
 from localstack.http.adapters import RouterListener
 from localstack.http.dispatcher import resource_dispatcher
@@ -17,8 +18,29 @@ from localstack.utils.collections import merge_recursive
 from localstack.utils.files import load_file
 from localstack.utils.functions import call_safe
 from localstack.utils.json import parse_json_or_yaml
+from localstack.utils.server.http2_server import HTTP_METHODS
 
 LOG = logging.getLogger(__name__)
+
+
+class DeprecatedResource:
+    """
+    Resource class which wraps a given resource in the deprecated_endpoint (i.e. logs deprecation warnings on every
+    invocation).
+    """
+
+    def __init__(self, resource, previous_path: str, deprecation_version: str, new_path: str):
+        for http_method in HTTP_METHODS:
+            fn_name = f"on_{http_method.lower()}"
+            fn = getattr(resource, fn_name, None)
+            if fn:
+                wrapped = deprecated_endpoint(
+                    fn,
+                    previous_path=previous_path,
+                    deprecation_version=deprecation_version,
+                    new_path=new_path,
+                )
+                setattr(self, fn_name, wrapped)
 
 
 class HealthResource:
@@ -63,6 +85,9 @@ class HealthResource:
         result["version"] = constants.VERSION
         return result
 
+    def on_head(self, _request: Request):
+        return Response("ok", 200)
+
     def on_put(self, request: Request):
         data = request.get_json(True, True) or {}
 
@@ -81,30 +106,6 @@ class HealthResource:
 
         self.state = merge_recursive(state, self.state, overwrite=True)
         return {"status": "OK"}
-
-
-class ResourceGraph:
-    """
-    Serves the resource graph for app.localstack.cloud.
-    """
-
-    def on_post(self, request):
-        return self.serve_resource_graph(request.json())
-
-    def serve_resource_graph(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        from localstack.dashboard import infra as dashboard_infra
-        from localstack.utils.aws.aws_stack import Environment
-
-        if not data.get("awsEnvironment"):
-            raise ValueError("cannot parse aws Environment from empty string")
-
-        env = Environment.from_string(data.get("awsEnvironment"))
-        graph = dashboard_infra.get_graph(
-            name_filter=data.get("nameFilter") or ".*",
-            env=env,
-            region=data.get("awsRegion"),
-        )
-        return graph
 
 
 class CloudFormationUi:
@@ -200,6 +201,52 @@ class PluginsResource:
         }
 
 
+class InitScriptsResource:
+    def on_get(self, request):
+        from localstack.runtime.init import init_script_manager
+
+        manager = init_script_manager()
+
+        return {
+            "completed": {
+                stage.name: completed for stage, completed in manager.stage_completed.items()
+            },
+            "scripts": [
+                {
+                    "stage": script.stage.name,
+                    "name": os.path.basename(script.path),
+                    "state": script.state.name,
+                }
+                for scripts in manager.scripts.values()
+                for script in scripts
+            ],
+        }
+
+
+class InitScriptsStageResource:
+    def on_get(self, request, stage: str):
+        from localstack.runtime.init import Stage, init_script_manager
+
+        manager = init_script_manager()
+
+        try:
+            stage = Stage[stage.upper()]
+        except KeyError as e:
+            raise NotFound(f"no such stage {stage}") from e
+
+        return {
+            "completed": manager.stage_completed.get(stage),
+            "scripts": [
+                {
+                    "stage": script.stage.name,
+                    "name": os.path.basename(script.path),
+                    "state": script.state.name,
+                }
+                for script in manager.scripts.get(stage)
+            ],
+        }
+
+
 class LocalstackResources(Router):
     """
     Router for localstack-internal HTTP resources.
@@ -214,16 +261,23 @@ class LocalstackResources(Router):
         from localstack.services.plugins import SERVICE_PLUGINS
 
         health_resource = HealthResource(SERVICE_PLUGINS)
-        graph_resource = ResourceGraph()
         plugins_resource = PluginsResource()
 
-        # two special routes for legacy support (before `/_localstack` was introduced)
-        super().add("/health", health_resource)
-        super().add("/graph", graph_resource)
+        # special route for legacy support (before `/_localstack` was introduced)
+        super().add(
+            "/health",
+            DeprecatedResource(
+                health_resource,
+                previous_path="/health",
+                deprecation_version="1.3.0",
+                new_path="/_localstack/health",
+            ),
+        )
 
         self.add("/health", health_resource)
-        self.add("/graph", graph_resource)
         self.add("/plugins", plugins_resource)
+        self.add("/init", InitScriptsResource())
+        self.add("/init/<stage>", InitScriptsStageResource())
         self.add("/cloudformation/deploy", CloudFormationUi())
 
         if config.DEBUG:

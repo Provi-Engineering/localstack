@@ -11,6 +11,7 @@ from localstack.aws.api import RequestContext, ServiceRequest, handler
 
 AddressMaxResults = int
 AllocationId = str
+AllowedInstanceType = str
 AutoRecoveryFlag = bool
 BareMetalFlag = bool
 BaselineBandwidthInMbps = int
@@ -26,10 +27,14 @@ CapacityReservationFleetId = str
 CapacityReservationId = str
 CarrierGatewayId = str
 CarrierGatewayMaxResults = int
+CertificateArn = str
 ClientVpnAssociationId = str
 ClientVpnEndpointId = str
+CloudWatchLogGroupArn = str
 CoipPoolId = str
 CoipPoolMaxResults = int
+ComponentAccount = str
+ComponentRegion = str
 ConnectionNotificationId = str
 ConversionTaskId = str
 CoreCount = int
@@ -42,6 +47,7 @@ DedicatedHostFlag = bool
 DedicatedHostId = str
 DefaultNetworkCardIndex = int
 DefaultingDhcpOptionsId = str
+DescribeAddressTransfersMaxResults = int
 DescribeByoipCidrsMaxResults = int
 DescribeCapacityReservationFleetsMaxResults = int
 DescribeCapacityReservationsMaxResults = int
@@ -82,6 +88,11 @@ DescribeStaleSecurityGroupsNextToken = str
 DescribeStoreImageTasksRequestMaxResults = int
 DescribeSubnetsMaxResults = int
 DescribeTrunkInterfaceAssociationsMaxResults = int
+DescribeVerifiedAccessEndpointsMaxResults = int
+DescribeVerifiedAccessGroupMaxResults = int
+DescribeVerifiedAccessInstanceLoggingConfigurationsMaxResults = int
+DescribeVerifiedAccessInstancesMaxResults = int
+DescribeVerifiedAccessTrustProvidersMaxResults = int
 DescribeVpcClassicLinkDnsSupportMaxResults = int
 DescribeVpcClassicLinkDnsSupportNextToken = str
 DescribeVpcPeeringConnectionsMaxResults = int
@@ -95,6 +106,7 @@ EgressOnlyInternetGatewayId = str
 ElasticGpuId = str
 ElasticInferenceAcceleratorCount = int
 ElasticIpAssociationId = str
+EnaSrdSupported = bool
 EncryptionInTransitSupported = bool
 ExcludedInstanceType = str
 ExportImageTaskId = str
@@ -134,6 +146,7 @@ InstanceEventId = str
 InstanceEventWindowCronExpression = str
 InstanceEventWindowId = str
 InstanceId = str
+InstanceIdForResolver = str
 InstanceStorageFlag = bool
 Integer = int
 IntegerWithConstraints = int
@@ -161,6 +174,7 @@ LaunchTemplateId = str
 LaunchTemplateName = str
 ListImagesInRecycleBinMaxResults = int
 ListSnapshotsInRecycleBinMaxResults = int
+LoadBalancerArn = str
 LocalGatewayId = str
 LocalGatewayMaxResults = int
 LocalGatewayRouteTableVirtualInterfaceGroupAssociationId = str
@@ -173,6 +187,7 @@ MaxIpv4AddrPerInterface = int
 MaxIpv6AddrPerInterface = int
 MaxNetworkInterfaces = int
 MaxResults = int
+MaxResultsParam = int
 MaximumBandwidthInMbps = int
 MaximumEfaInterfaces = int
 MaximumIops = int
@@ -246,17 +261,26 @@ TransitGatewayConnectPeerId = str
 TransitGatewayId = str
 TransitGatewayMaxResults = int
 TransitGatewayMulticastDomainId = str
+TransitGatewayPolicyTableId = str
+TransitGatewayRouteTableAnnouncementId = str
 TransitGatewayRouteTableId = str
 TrunkInterfaceAssociationId = str
 VCpuCount = int
+VerifiedAccessEndpointId = str
+VerifiedAccessEndpointPortNumber = int
+VerifiedAccessGroupId = str
+VerifiedAccessInstanceId = str
+VerifiedAccessTrustProviderId = str
 VersionDescription = str
 VolumeId = str
+VolumeIdWithResolver = str
 VpcCidrAssociationId = str
 VpcEndpointId = str
 VpcEndpointServiceId = str
 VpcFlowLogId = str
 VpcId = str
 VpcPeeringConnectionId = str
+VpcPeeringConnectionIdWithResolver = str
 VpnConnectionDeviceSampleConfiguration = str
 VpnConnectionDeviceTypeId = str
 VpnConnectionId = str
@@ -280,6 +304,8 @@ class AcceleratorName(str):
     m60 = "m60"
     radeon_pro_v520 = "radeon-pro-v520"
     vu9p = "vu9p"
+    inferentia = "inferentia"
+    k520 = "k520"
 
 
 class AcceleratorType(str):
@@ -309,6 +335,12 @@ class AddressFamily(str):
     ipv6 = "ipv6"
 
 
+class AddressTransferStatus(str):
+    pending = "pending"
+    disabled = "disabled"
+    accepted = "accepted"
+
+
 class Affinity(str):
     default = "default"
     host = "host"
@@ -328,6 +360,11 @@ class AllocationStrategy(str):
     diversified = "diversified"
     capacityOptimized = "capacityOptimized"
     capacityOptimizedPrioritized = "capacityOptimizedPrioritized"
+    priceCapacityOptimized = "priceCapacityOptimized"
+
+
+class AllocationType(str):
+    used = "used"
 
 
 class AllowsMultipleInstanceTypes(str):
@@ -351,6 +388,7 @@ class ArchitectureType(str):
     x86_64 = "x86_64"
     arm64 = "arm64"
     x86_64_mac = "x86_64_mac"
+    arm64_mac = "arm64_mac"
 
 
 class ArchitectureValues(str):
@@ -358,6 +396,7 @@ class ArchitectureValues(str):
     x86_64 = "x86_64"
     arm64 = "arm64"
     x86_64_mac = "x86_64_mac"
+    arm64_mac = "arm64_mac"
 
 
 class AssociatedNetworkType(str):
@@ -658,6 +697,11 @@ class DestinationFileFormat(str):
     parquet = "parquet"
 
 
+class DeviceTrustProviderType(str):
+    jamf = "jamf"
+    crowdstrike = "crowdstrike"
+
+
 class DeviceType(str):
     ebs = "ebs"
     instance_store = "instance-store"
@@ -695,6 +739,11 @@ class DnsSupportValue(str):
 class DomainType(str):
     vpc = "vpc"
     standard = "standard"
+
+
+class DynamicRoutingValue(str):
+    enable = "enable"
+    disable = "disable"
 
 
 class EbsEncryptionSupport(str):
@@ -860,6 +909,8 @@ class FlowLogsResourceType(str):
     VPC = "VPC"
     Subnet = "Subnet"
     NetworkInterface = "NetworkInterface"
+    TransitGateway = "TransitGateway"
+    TransitGatewayAttachment = "TransitGatewayAttachment"
 
 
 class FpgaImageAttributeName(str):
@@ -936,6 +987,7 @@ class ImageAttributeName(str):
     tpmSupport = "tpmSupport"
     uefiData = "uefiData"
     lastLaunchedTime = "lastLaunchedTime"
+    imdsSupport = "imdsSupport"
 
 
 class ImageState(str):
@@ -952,6 +1004,10 @@ class ImageTypeValues(str):
     machine = "machine"
     kernel = "kernel"
     ramdisk = "ramdisk"
+
+
+class ImdsSupportValues(str):
+    v2_0 = "v2.0"
 
 
 class InstanceAttributeName(str):
@@ -1576,6 +1632,55 @@ class InstanceType(str):
     c7g_8xlarge = "c7g.8xlarge"
     c7g_12xlarge = "c7g.12xlarge"
     c7g_16xlarge = "c7g.16xlarge"
+    mac2_metal = "mac2.metal"
+    c6id_large = "c6id.large"
+    c6id_xlarge = "c6id.xlarge"
+    c6id_2xlarge = "c6id.2xlarge"
+    c6id_4xlarge = "c6id.4xlarge"
+    c6id_8xlarge = "c6id.8xlarge"
+    c6id_12xlarge = "c6id.12xlarge"
+    c6id_16xlarge = "c6id.16xlarge"
+    c6id_24xlarge = "c6id.24xlarge"
+    c6id_32xlarge = "c6id.32xlarge"
+    c6id_metal = "c6id.metal"
+    m6id_large = "m6id.large"
+    m6id_xlarge = "m6id.xlarge"
+    m6id_2xlarge = "m6id.2xlarge"
+    m6id_4xlarge = "m6id.4xlarge"
+    m6id_8xlarge = "m6id.8xlarge"
+    m6id_12xlarge = "m6id.12xlarge"
+    m6id_16xlarge = "m6id.16xlarge"
+    m6id_24xlarge = "m6id.24xlarge"
+    m6id_32xlarge = "m6id.32xlarge"
+    m6id_metal = "m6id.metal"
+    r6id_large = "r6id.large"
+    r6id_xlarge = "r6id.xlarge"
+    r6id_2xlarge = "r6id.2xlarge"
+    r6id_4xlarge = "r6id.4xlarge"
+    r6id_8xlarge = "r6id.8xlarge"
+    r6id_12xlarge = "r6id.12xlarge"
+    r6id_16xlarge = "r6id.16xlarge"
+    r6id_24xlarge = "r6id.24xlarge"
+    r6id_32xlarge = "r6id.32xlarge"
+    r6id_metal = "r6id.metal"
+    r6a_large = "r6a.large"
+    r6a_xlarge = "r6a.xlarge"
+    r6a_2xlarge = "r6a.2xlarge"
+    r6a_4xlarge = "r6a.4xlarge"
+    r6a_8xlarge = "r6a.8xlarge"
+    r6a_12xlarge = "r6a.12xlarge"
+    r6a_16xlarge = "r6a.16xlarge"
+    r6a_24xlarge = "r6a.24xlarge"
+    r6a_32xlarge = "r6a.32xlarge"
+    r6a_48xlarge = "r6a.48xlarge"
+    r6a_metal = "r6a.metal"
+    p4de_24xlarge = "p4de.24xlarge"
+    u_3tb1_56xlarge = "u-3tb1.56xlarge"
+    u_18tb1_112xlarge = "u-18tb1.112xlarge"
+    u_24tb1_112xlarge = "u-24tb1.112xlarge"
+    trn1_2xlarge = "trn1.2xlarge"
+    trn1_32xlarge = "trn1.32xlarge"
+    hpc6id_32xlarge = "hpc6id.32xlarge"
 
 
 class InstanceTypeHypervisor(str):
@@ -1786,6 +1891,11 @@ class LocalGatewayRouteState(str):
     deleted = "deleted"
 
 
+class LocalGatewayRouteTableMode(str):
+    direct_vpc_routing = "direct-vpc-routing"
+    coip = "coip"
+
+
 class LocalGatewayRouteType(str):
     static = "static"
     propagated = "propagated"
@@ -1811,6 +1921,7 @@ class LocationType(str):
 class LogDestinationType(str):
     cloud_watch_logs = "cloud-watch-logs"
     s3 = "s3"
+    kinesis_data_firehose = "kinesis-data-firehose"
 
 
 class MarketType(str):
@@ -1820,6 +1931,10 @@ class MarketType(str):
 class MembershipType(str):
     static = "static"
     igmp = "igmp"
+
+
+class MetricType(str):
+    aggregate_latency = "aggregate-latency"
 
 
 class ModifyAvailabilityZoneOptInStatus(str):
@@ -1939,6 +2054,15 @@ class PaymentOption(str):
     AllUpfront = "AllUpfront"
     PartialUpfront = "PartialUpfront"
     NoUpfront = "NoUpfront"
+
+
+class PeriodType(str):
+    five_minutes = "five-minutes"
+    fifteen_minutes = "fifteen-minutes"
+    one_hour = "one-hour"
+    three_hours = "three-hours"
+    one_day = "one-day"
+    one_week = "one-week"
 
 
 class PermissionGroup(str):
@@ -2077,6 +2201,7 @@ class ResourceType(str):
     client_vpn_endpoint = "client-vpn-endpoint"
     customer_gateway = "customer-gateway"
     carrier_gateway = "carrier-gateway"
+    coip_pool = "coip-pool"
     dedicated_host = "dedicated-host"
     dhcp_options = "dhcp-options"
     egress_only_internet_gateway = "egress-only-internet-gateway"
@@ -2134,15 +2259,29 @@ class ResourceType(str):
     transit_gateway_attachment = "transit-gateway-attachment"
     transit_gateway_connect_peer = "transit-gateway-connect-peer"
     transit_gateway_multicast_domain = "transit-gateway-multicast-domain"
+    transit_gateway_policy_table = "transit-gateway-policy-table"
     transit_gateway_route_table = "transit-gateway-route-table"
+    transit_gateway_route_table_announcement = "transit-gateway-route-table-announcement"
     volume = "volume"
     vpc = "vpc"
     vpc_endpoint = "vpc-endpoint"
+    vpc_endpoint_connection = "vpc-endpoint-connection"
     vpc_endpoint_service = "vpc-endpoint-service"
+    vpc_endpoint_service_permission = "vpc-endpoint-service-permission"
     vpc_peering_connection = "vpc-peering-connection"
     vpn_connection = "vpn-connection"
     vpn_gateway = "vpn-gateway"
     vpc_flow_log = "vpc-flow-log"
+    capacity_reservation_fleet = "capacity-reservation-fleet"
+    traffic_mirror_filter_rule = "traffic-mirror-filter-rule"
+    vpc_endpoint_connection_device_type = "vpc-endpoint-connection-device-type"
+    verified_access_instance = "verified-access-instance"
+    verified_access_group = "verified-access-group"
+    verified_access_endpoint = "verified-access-endpoint"
+    verified_access_policy = "verified-access-policy"
+    verified_access_trust_provider = "verified-access-trust-provider"
+    vpn_connection_device_type = "vpn-connection-device-type"
+    vpc_block_public_access_exclusion = "vpc-block-public-access-exclusion"
 
 
 class RootDeviceType(str):
@@ -2221,6 +2360,7 @@ class SpotAllocationStrategy(str):
     diversified = "diversified"
     capacity_optimized = "capacity-optimized"
     capacity_optimized_prioritized = "capacity-optimized-prioritized"
+    price_capacity_optimized = "price-capacity-optimized"
 
 
 class SpotInstanceInterruptionBehavior(str):
@@ -2261,6 +2401,10 @@ class State(str):
 class StaticSourcesSupportValue(str):
     enable = "enable"
     disable = "disable"
+
+
+class StatisticType(str):
+    p50 = "p50"
 
 
 class Status(str):
@@ -2444,6 +2588,13 @@ class TransitGatewayMulticastDomainState(str):
     deleted = "deleted"
 
 
+class TransitGatewayPolicyTableState(str):
+    pending = "pending"
+    available = "available"
+    deleting = "deleting"
+    deleted = "deleted"
+
+
 class TransitGatewayPrefixListReferenceState(str):
     pending = "pending"
     available = "available"
@@ -2462,6 +2613,20 @@ class TransitGatewayRouteState(str):
     pending = "pending"
     active = "active"
     blackhole = "blackhole"
+    deleting = "deleting"
+    deleted = "deleted"
+
+
+class TransitGatewayRouteTableAnnouncementDirection(str):
+    outgoing = "outgoing"
+    incoming = "incoming"
+
+
+class TransitGatewayRouteTableAnnouncementState(str):
+    available = "available"
+    pending = "pending"
+    failing = "failing"
+    failed = "failed"
     deleting = "deleting"
     deleted = "deleted"
 
@@ -2491,6 +2656,11 @@ class TransportProtocol(str):
     udp = "udp"
 
 
+class TrustProviderType(str):
+    user = "user"
+    device = "device"
+
+
 class TunnelInsideIpVersion(str):
     ipv4 = "ipv4"
     ipv6 = "ipv6"
@@ -2513,6 +2683,38 @@ class UnsuccessfulInstanceCreditSpecificationErrorCode(str):
 class UsageClassType(str):
     spot = "spot"
     on_demand = "on-demand"
+
+
+class UserTrustProviderType(str):
+    iam_identity_center = "iam-identity-center"
+    oidc = "oidc"
+
+
+class VerifiedAccessEndpointAttachmentType(str):
+    vpc = "vpc"
+
+
+class VerifiedAccessEndpointProtocol(str):
+    http = "http"
+    https = "https"
+
+
+class VerifiedAccessEndpointStatusCode(str):
+    pending = "pending"
+    active = "active"
+    updating = "updating"
+    deleting = "deleting"
+    deleted = "deleted"
+
+
+class VerifiedAccessEndpointType(str):
+    load_balancer = "load-balancer"
+    network_interface = "network-interface"
+
+
+class VerifiedAccessLogDeliveryStatusCode(str):
+    success = "success"
+    failed = "failed"
 
 
 class VirtualizationType(str):
@@ -2573,6 +2775,7 @@ class VolumeType(str):
 class VpcAttributeName(str):
     enableDnsSupport = "enableDnsSupport"
     enableDnsHostnames = "enableDnsHostnames"
+    enableNetworkAddressUsageMetrics = "enableNetworkAddressUsageMetrics"
 
 
 class VpcCidrBlockStateCode(str):
@@ -2673,6 +2876,44 @@ class AcceleratorTotalMemoryMiBRequest(TypedDict, total=False):
 AcceleratorTypeSet = List[AcceleratorType]
 
 
+class Tag(TypedDict, total=False):
+    Key: Optional[String]
+    Value: Optional[String]
+
+
+TagList = List[Tag]
+
+
+class TagSpecification(TypedDict, total=False):
+    ResourceType: Optional[ResourceType]
+    Tags: Optional[TagList]
+
+
+TagSpecificationList = List[TagSpecification]
+
+
+class AcceptAddressTransferRequest(ServiceRequest):
+    Address: String
+    TagSpecifications: Optional[TagSpecificationList]
+    DryRun: Optional[Boolean]
+
+
+MillisecondDateTime = datetime
+
+
+class AddressTransfer(TypedDict, total=False):
+    PublicIp: Optional[String]
+    AllocationId: Optional[String]
+    TransferAccountId: Optional[String]
+    TransferOfferExpirationTimestamp: Optional[MillisecondDateTime]
+    TransferOfferAcceptedTimestamp: Optional[MillisecondDateTime]
+    AddressTransferStatus: Optional[AddressTransferStatus]
+
+
+class AcceptAddressTransferResult(TypedDict, total=False):
+    AddressTransfer: Optional[AddressTransfer]
+
+
 class TargetConfigurationRequest(TypedDict, total=False):
     InstanceCount: Optional[Integer]
     OfferingId: ReservedInstancesOfferingId
@@ -2728,12 +2969,6 @@ class AcceptTransitGatewayPeeringAttachmentRequest(ServiceRequest):
     DryRun: Optional[Boolean]
 
 
-class Tag(TypedDict, total=False):
-    Key: Optional[String]
-    Value: Optional[String]
-
-
-TagList = List[Tag]
 DateTime = datetime
 
 
@@ -2742,16 +2977,23 @@ class PeeringAttachmentStatus(TypedDict, total=False):
     Message: Optional[String]
 
 
+class TransitGatewayPeeringAttachmentOptions(TypedDict, total=False):
+    DynamicRouting: Optional[DynamicRoutingValue]
+
+
 class PeeringTgwInfo(TypedDict, total=False):
     TransitGatewayId: Optional[String]
+    CoreNetworkId: Optional[String]
     OwnerId: Optional[String]
     Region: Optional[String]
 
 
 class TransitGatewayPeeringAttachment(TypedDict, total=False):
     TransitGatewayAttachmentId: Optional[String]
+    AccepterTransitGatewayAttachmentId: Optional[String]
     RequesterTgwInfo: Optional[PeeringTgwInfo]
     AccepterTgwInfo: Optional[PeeringTgwInfo]
+    Options: Optional[TransitGatewayPeeringAttachmentOptions]
     Status: Optional[PeeringAttachmentStatus]
     State: Optional[TransitGatewayAttachmentState]
     CreationTime: Optional[DateTime]
@@ -2817,7 +3059,7 @@ class AcceptVpcEndpointConnectionsResult(TypedDict, total=False):
 
 class AcceptVpcPeeringConnectionRequest(ServiceRequest):
     DryRun: Optional[Boolean]
-    VpcPeeringConnectionId: Optional[VpcPeeringConnectionId]
+    VpcPeeringConnectionId: Optional[VpcPeeringConnectionIdWithResolver]
 
 
 class VpcPeeringConnectionStateReason(TypedDict, total=False):
@@ -2868,6 +3110,12 @@ class AcceptVpcPeeringConnectionResult(TypedDict, total=False):
     VpcPeeringConnection: Optional[VpcPeeringConnection]
 
 
+class AnalysisComponent(TypedDict, total=False):
+    Id: Optional[String]
+    Arn: Optional[String]
+    Name: Optional[String]
+
+
 class TransitGatewayRouteTableRoute(TypedDict, total=False):
     DestinationCidr: Optional[String]
     State: Optional[String]
@@ -2878,18 +3126,7 @@ class TransitGatewayRouteTableRoute(TypedDict, total=False):
     ResourceType: Optional[String]
 
 
-class AnalysisComponent(TypedDict, total=False):
-    Id: Optional[String]
-    Arn: Optional[String]
-    Name: Optional[String]
-
-
-class AdditionalDetail(TypedDict, total=False):
-    AdditionalDetailType: Optional[String]
-    Component: Optional[AnalysisComponent]
-
-
-AdditionalDetailList = List[AdditionalDetail]
+AnalysisComponentList = List[AnalysisComponent]
 
 
 class PortRange(TypedDict, total=False):
@@ -2917,18 +3154,26 @@ class AnalysisRouteTableRoute(TypedDict, total=False):
     Origin: Optional[String]
     TransitGatewayId: Optional[String]
     VpcPeeringConnectionId: Optional[String]
+    State: Optional[String]
 
 
+StringList = List[String]
 PortRangeList = List[PortRange]
+
+
+class AnalysisLoadBalancerTarget(TypedDict, total=False):
+    Address: Optional[IpAddress]
+    AvailabilityZone: Optional[String]
+    Instance: Optional[AnalysisComponent]
+    Port: Optional[Port]
+
+
+class AnalysisLoadBalancerListener(TypedDict, total=False):
+    LoadBalancerPort: Optional[Port]
+    InstancePort: Optional[Port]
+
+
 IpAddressList = List[IpAddress]
-
-
-class AnalysisPacketHeader(TypedDict, total=False):
-    DestinationAddresses: Optional[IpAddressList]
-    DestinationPortRanges: Optional[PortRangeList]
-    Protocol: Optional[String]
-    SourceAddresses: Optional[IpAddressList]
-    SourcePortRanges: Optional[PortRangeList]
 
 
 class AnalysisAclRule(TypedDict, total=False):
@@ -2938,6 +3183,79 @@ class AnalysisAclRule(TypedDict, total=False):
     Protocol: Optional[String]
     RuleAction: Optional[String]
     RuleNumber: Optional[Integer]
+
+
+class Explanation(TypedDict, total=False):
+    Acl: Optional[AnalysisComponent]
+    AclRule: Optional[AnalysisAclRule]
+    Address: Optional[IpAddress]
+    Addresses: Optional[IpAddressList]
+    AttachedTo: Optional[AnalysisComponent]
+    AvailabilityZones: Optional[ValueStringList]
+    Cidrs: Optional[ValueStringList]
+    Component: Optional[AnalysisComponent]
+    CustomerGateway: Optional[AnalysisComponent]
+    Destination: Optional[AnalysisComponent]
+    DestinationVpc: Optional[AnalysisComponent]
+    Direction: Optional[String]
+    ExplanationCode: Optional[String]
+    IngressRouteTable: Optional[AnalysisComponent]
+    InternetGateway: Optional[AnalysisComponent]
+    LoadBalancerArn: Optional[ResourceArn]
+    ClassicLoadBalancerListener: Optional[AnalysisLoadBalancerListener]
+    LoadBalancerListenerPort: Optional[Port]
+    LoadBalancerTarget: Optional[AnalysisLoadBalancerTarget]
+    LoadBalancerTargetGroup: Optional[AnalysisComponent]
+    LoadBalancerTargetGroups: Optional[AnalysisComponentList]
+    LoadBalancerTargetPort: Optional[Port]
+    ElasticLoadBalancerListener: Optional[AnalysisComponent]
+    MissingComponent: Optional[String]
+    NatGateway: Optional[AnalysisComponent]
+    NetworkInterface: Optional[AnalysisComponent]
+    PacketField: Optional[String]
+    VpcPeeringConnection: Optional[AnalysisComponent]
+    Port: Optional[Port]
+    PortRanges: Optional[PortRangeList]
+    PrefixList: Optional[AnalysisComponent]
+    Protocols: Optional[StringList]
+    RouteTableRoute: Optional[AnalysisRouteTableRoute]
+    RouteTable: Optional[AnalysisComponent]
+    SecurityGroup: Optional[AnalysisComponent]
+    SecurityGroupRule: Optional[AnalysisSecurityGroupRule]
+    SecurityGroups: Optional[AnalysisComponentList]
+    SourceVpc: Optional[AnalysisComponent]
+    State: Optional[String]
+    Subnet: Optional[AnalysisComponent]
+    SubnetRouteTable: Optional[AnalysisComponent]
+    Vpc: Optional[AnalysisComponent]
+    VpcEndpoint: Optional[AnalysisComponent]
+    VpnConnection: Optional[AnalysisComponent]
+    VpnGateway: Optional[AnalysisComponent]
+    TransitGateway: Optional[AnalysisComponent]
+    TransitGatewayRouteTable: Optional[AnalysisComponent]
+    TransitGatewayRouteTableRoute: Optional[TransitGatewayRouteTableRoute]
+    TransitGatewayAttachment: Optional[AnalysisComponent]
+    ComponentAccount: Optional[ComponentAccount]
+    ComponentRegion: Optional[ComponentRegion]
+
+
+ExplanationList = List[Explanation]
+
+
+class AdditionalDetail(TypedDict, total=False):
+    AdditionalDetailType: Optional[String]
+    Component: Optional[AnalysisComponent]
+
+
+AdditionalDetailList = List[AdditionalDetail]
+
+
+class AnalysisPacketHeader(TypedDict, total=False):
+    DestinationAddresses: Optional[IpAddressList]
+    DestinationPortRanges: Optional[PortRangeList]
+    Protocol: Optional[String]
+    SourceAddresses: Optional[IpAddressList]
+    SourcePortRanges: Optional[PortRangeList]
 
 
 class PathComponent(TypedDict, total=False):
@@ -2956,6 +3274,8 @@ class PathComponent(TypedDict, total=False):
     AdditionalDetails: Optional[AdditionalDetailList]
     TransitGateway: Optional[AnalysisComponent]
     TransitGatewayRouteTableRoute: Optional[TransitGatewayRouteTableRoute]
+    Explanations: Optional[ExplanationList]
+    ElasticLoadBalancerListener: Optional[AnalysisComponent]
 
 
 PathComponentList = List[PathComponent]
@@ -3085,6 +3405,16 @@ class AddPrefixListEntry(TypedDict, total=False):
 AddPrefixListEntries = List[AddPrefixListEntry]
 
 
+class AddedPrincipal(TypedDict, total=False):
+    PrincipalType: Optional[PrincipalType]
+    Principal: Optional[String]
+    ServicePermissionId: Optional[String]
+    ServiceId: Optional[String]
+
+
+AddedPrincipalSet = List[AddedPrincipal]
+
+
 class Address(TypedDict, total=False):
     InstanceId: Optional[String]
     PublicIp: Optional[String]
@@ -3117,6 +3447,7 @@ class AddressAttribute(TypedDict, total=False):
 
 AddressList = List[Address]
 AddressSet = List[AddressAttribute]
+AddressTransferList = List[AddressTransfer]
 
 
 class AdvertiseByoipCidrRequest(ServiceRequest):
@@ -3133,14 +3464,6 @@ class ByoipCidr(TypedDict, total=False):
 
 class AdvertiseByoipCidrResult(TypedDict, total=False):
     ByoipCidr: Optional[ByoipCidr]
-
-
-class TagSpecification(TypedDict, total=False):
-    ResourceType: Optional[ResourceType]
-    Tags: Optional[TagList]
-
-
-TagSpecificationList = List[TagSpecification]
 
 
 class AllocateAddressRequest(ServiceRequest):
@@ -3213,11 +3536,15 @@ class AllocateIpamPoolCidrResult(TypedDict, total=False):
 
 AllocationIdList = List[AllocationId]
 AllocationIds = List[AllocationId]
+AllowedInstanceTypeSet = List[AllowedInstanceType]
 
 
 class AllowedPrincipal(TypedDict, total=False):
     PrincipalType: Optional[PrincipalType]
     Principal: Optional[String]
+    ServicePermissionId: Optional[String]
+    Tags: Optional[TagList]
+    ServiceId: Optional[String]
 
 
 AllowedPrincipalSet = List[AllowedPrincipal]
@@ -3229,21 +3556,6 @@ class AlternatePathHint(TypedDict, total=False):
 
 
 AlternatePathHintList = List[AlternatePathHint]
-AnalysisComponentList = List[AnalysisComponent]
-
-
-class AnalysisLoadBalancerListener(TypedDict, total=False):
-    LoadBalancerPort: Optional[Port]
-    InstancePort: Optional[Port]
-
-
-class AnalysisLoadBalancerTarget(TypedDict, total=False):
-    Address: Optional[IpAddress]
-    AvailabilityZone: Optional[String]
-    Instance: Optional[AnalysisComponent]
-    Port: Optional[Port]
-
-
 ClientVpnSecurityGroupIdSet = List[SecurityGroupId]
 
 
@@ -3485,6 +3797,24 @@ class AssociateTransitGatewayMulticastDomainResult(TypedDict, total=False):
     Associations: Optional[TransitGatewayMulticastDomainAssociations]
 
 
+class AssociateTransitGatewayPolicyTableRequest(ServiceRequest):
+    TransitGatewayPolicyTableId: TransitGatewayPolicyTableId
+    TransitGatewayAttachmentId: TransitGatewayAttachmentId
+    DryRun: Optional[Boolean]
+
+
+class TransitGatewayPolicyTableAssociation(TypedDict, total=False):
+    TransitGatewayPolicyTableId: Optional[TransitGatewayPolicyTableId]
+    TransitGatewayAttachmentId: Optional[TransitGatewayAttachmentId]
+    ResourceId: Optional[String]
+    ResourceType: Optional[TransitGatewayAttachmentResourceType]
+    State: Optional[TransitGatewayAssociationState]
+
+
+class AssociateTransitGatewayPolicyTableResult(TypedDict, total=False):
+    Association: Optional[TransitGatewayPolicyTableAssociation]
+
+
 class AssociateTransitGatewayRouteTableRequest(ServiceRequest):
     TransitGatewayRouteTableId: TransitGatewayRouteTableId
     TransitGatewayAttachmentId: TransitGatewayAttachmentId
@@ -3582,7 +3912,6 @@ class AssociatedTargetNetwork(TypedDict, total=False):
 
 AssociatedTargetNetworkSet = List[AssociatedTargetNetwork]
 AssociationIdList = List[IamInstanceProfileAssociationId]
-MillisecondDateTime = datetime
 
 
 class AthenaIntegration(TypedDict, total=False):
@@ -3613,17 +3942,87 @@ class AttachInternetGatewayRequest(ServiceRequest):
     VpcId: VpcId
 
 
+class EnaSrdUdpSpecification(TypedDict, total=False):
+    EnaSrdUdpEnabled: Optional[Boolean]
+
+
+class EnaSrdSpecification(TypedDict, total=False):
+    EnaSrdEnabled: Optional[Boolean]
+    EnaSrdUdpSpecification: Optional[EnaSrdUdpSpecification]
+
+
 class AttachNetworkInterfaceRequest(ServiceRequest):
     DeviceIndex: Integer
     DryRun: Optional[Boolean]
     InstanceId: InstanceId
     NetworkInterfaceId: NetworkInterfaceId
     NetworkCardIndex: Optional[Integer]
+    EnaSrdSpecification: Optional[EnaSrdSpecification]
 
 
 class AttachNetworkInterfaceResult(TypedDict, total=False):
     AttachmentId: Optional[String]
     NetworkCardIndex: Optional[Integer]
+
+
+class AttachVerifiedAccessTrustProviderRequest(ServiceRequest):
+    VerifiedAccessInstanceId: VerifiedAccessInstanceId
+    VerifiedAccessTrustProviderId: VerifiedAccessTrustProviderId
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class VerifiedAccessTrustProviderCondensed(TypedDict, total=False):
+    VerifiedAccessTrustProviderId: Optional[String]
+    Description: Optional[String]
+    TrustProviderType: Optional[TrustProviderType]
+    UserTrustProviderType: Optional[UserTrustProviderType]
+    DeviceTrustProviderType: Optional[DeviceTrustProviderType]
+
+
+VerifiedAccessTrustProviderCondensedList = List[VerifiedAccessTrustProviderCondensed]
+
+
+class VerifiedAccessInstance(TypedDict, total=False):
+    VerifiedAccessInstanceId: Optional[String]
+    Description: Optional[String]
+    VerifiedAccessTrustProviders: Optional[VerifiedAccessTrustProviderCondensedList]
+    CreationTime: Optional[String]
+    LastUpdatedTime: Optional[String]
+    Tags: Optional[TagList]
+
+
+class DeviceOptions(TypedDict, total=False):
+    TenantId: Optional[String]
+
+
+class OidcOptions(TypedDict, total=False):
+    Issuer: Optional[String]
+    AuthorizationEndpoint: Optional[String]
+    TokenEndpoint: Optional[String]
+    UserInfoEndpoint: Optional[String]
+    ClientId: Optional[String]
+    ClientSecret: Optional[String]
+    Scope: Optional[String]
+
+
+class VerifiedAccessTrustProvider(TypedDict, total=False):
+    VerifiedAccessTrustProviderId: Optional[String]
+    Description: Optional[String]
+    TrustProviderType: Optional[TrustProviderType]
+    UserTrustProviderType: Optional[UserTrustProviderType]
+    DeviceTrustProviderType: Optional[DeviceTrustProviderType]
+    OidcOptions: Optional[OidcOptions]
+    DeviceOptions: Optional[DeviceOptions]
+    PolicyReferenceName: Optional[String]
+    CreationTime: Optional[String]
+    LastUpdatedTime: Optional[String]
+    Tags: Optional[TagList]
+
+
+class AttachVerifiedAccessTrustProviderResult(TypedDict, total=False):
+    VerifiedAccessTrustProvider: Optional[VerifiedAccessTrustProvider]
+    VerifiedAccessInstance: Optional[VerifiedAccessInstance]
 
 
 class AttachVolumeRequest(ServiceRequest):
@@ -3646,6 +4045,15 @@ class VpcAttachment(TypedDict, total=False):
 
 class AttachVpnGatewayResult(TypedDict, total=False):
     VpcAttachment: Optional[VpcAttachment]
+
+
+class AttachmentEnaSrdUdpSpecification(TypedDict, total=False):
+    EnaSrdUdpEnabled: Optional[Boolean]
+
+
+class AttachmentEnaSrdSpecification(TypedDict, total=False):
+    EnaSrdEnabled: Optional[Boolean]
+    EnaSrdUdpSpecification: Optional[AttachmentEnaSrdUdpSpecification]
 
 
 class AttributeBooleanValue(TypedDict, total=False):
@@ -3990,6 +4398,15 @@ class CancelExportTaskRequest(ServiceRequest):
     ExportTaskId: ExportVmTaskId
 
 
+class CancelImageLaunchPermissionRequest(ServiceRequest):
+    ImageId: ImageId
+    DryRun: Optional[Boolean]
+
+
+class CancelImageLaunchPermissionResult(TypedDict, total=False):
+    Return: Optional[Boolean]
+
+
 class CancelImportTaskRequest(ServiceRequest):
     CancelReason: Optional[String]
     DryRun: Optional[Boolean]
@@ -4101,6 +4518,14 @@ class CancelSpotInstanceRequestsResult(TypedDict, total=False):
     CancelledSpotInstanceRequests: Optional[CancelledSpotInstanceRequestList]
 
 
+class CapacityAllocation(TypedDict, total=False):
+    AllocationType: Optional[AllocationType]
+    Count: Optional[Integer]
+
+
+CapacityAllocations = List[CapacityAllocation]
+
+
 class CapacityReservation(TypedDict, total=False):
     CapacityReservationId: Optional[String]
     OwnerId: Optional[String]
@@ -4124,6 +4549,7 @@ class CapacityReservation(TypedDict, total=False):
     OutpostArn: Optional[OutpostArn]
     CapacityReservationFleetId: Optional[String]
     PlacementGroupArn: Optional[PlacementGroupArn]
+    CapacityAllocations: Optional[CapacityAllocations]
 
 
 class FleetCapacityReservation(TypedDict, total=False):
@@ -4422,6 +4848,18 @@ class ClientVpnRoute(TypedDict, total=False):
 ClientVpnRouteSet = List[ClientVpnRoute]
 
 
+class CloudWatchLogOptions(TypedDict, total=False):
+    LogEnabled: Optional[Boolean]
+    LogGroupArn: Optional[String]
+    LogOutputFormat: Optional[String]
+
+
+class CloudWatchLogOptionsSpecification(TypedDict, total=False):
+    LogEnabled: Optional[Boolean]
+    LogGroupArn: Optional[CloudWatchLogGroupArn]
+    LogOutputFormat: Optional[String]
+
+
 class CoipAddressUsage(TypedDict, total=False):
     AllocationId: Optional[String]
     AwsAccountId: Optional[String]
@@ -4430,6 +4868,12 @@ class CoipAddressUsage(TypedDict, total=False):
 
 
 CoipAddressUsageSet = List[CoipAddressUsage]
+
+
+class CoipCidr(TypedDict, total=False):
+    Cidr: Optional[String]
+    CoipPoolId: Optional[Ipv4PoolCoipId]
+    LocalGatewayRouteTableId: Optional[String]
 
 
 class CoipPool(TypedDict, total=False):
@@ -4549,6 +4993,7 @@ class CopyImageRequest(ServiceRequest):
     SourceRegion: String
     DestinationOutpostArn: Optional[String]
     DryRun: Optional[Boolean]
+    CopyImageTags: Optional[Boolean]
 
 
 class CopyImageResult(TypedDict, total=False):
@@ -4698,6 +5143,26 @@ class CreateClientVpnRouteRequest(ServiceRequest):
 
 class CreateClientVpnRouteResult(TypedDict, total=False):
     Status: Optional[ClientVpnRouteStatus]
+
+
+class CreateCoipCidrRequest(ServiceRequest):
+    Cidr: String
+    CoipPoolId: Ipv4PoolCoipId
+    DryRun: Optional[Boolean]
+
+
+class CreateCoipCidrResult(TypedDict, total=False):
+    CoipCidr: Optional[CoipCidr]
+
+
+class CreateCoipPoolRequest(ServiceRequest):
+    LocalGatewayRouteTableId: LocalGatewayRoutetableId
+    TagSpecifications: Optional[TagSpecificationList]
+    DryRun: Optional[Boolean]
+
+
+class CreateCoipPoolResult(TypedDict, total=False):
+    CoipPool: Optional[CoipPool]
 
 
 class CreateCustomerGatewayRequest(ServiceRequest):
@@ -4856,6 +5321,11 @@ class CreateEgressOnlyInternetGatewayResult(TypedDict, total=False):
     EgressOnlyInternetGateway: Optional[EgressOnlyInternetGateway]
 
 
+class NetworkBandwidthGbps(TypedDict, total=False):
+    Min: Optional[Double]
+    Max: Optional[Double]
+
+
 class TotalLocalStorageGB(TypedDict, total=False):
     Min: Optional[Double]
     Max: Optional[Double]
@@ -4910,6 +5380,8 @@ class InstanceRequirements(TypedDict, total=False):
     AcceleratorManufacturers: Optional[AcceleratorManufacturerSet]
     AcceleratorNames: Optional[AcceleratorNameSet]
     AcceleratorTotalMemoryMiB: Optional[AcceleratorTotalMemoryMiB]
+    NetworkBandwidthGbps: Optional[NetworkBandwidthGbps]
+    AllowedInstanceTypes: Optional[AllowedInstanceTypeSet]
 
 
 class PlacementResponse(TypedDict, total=False):
@@ -4925,6 +5397,7 @@ class FleetLaunchTemplateOverrides(TypedDict, total=False):
     Priority: Optional[Double]
     Placement: Optional[PlacementResponse]
     InstanceRequirements: Optional[InstanceRequirements]
+    ImageId: Optional[ImageId]
 
 
 class FleetLaunchTemplateSpecification(TypedDict, total=False):
@@ -4966,6 +5439,11 @@ class TargetCapacitySpecificationRequest(TypedDict, total=False):
     SpotTargetCapacity: Optional[Integer]
     DefaultTargetCapacityType: Optional[DefaultTargetCapacityType]
     TargetCapacityUnitType: Optional[TargetCapacityUnitType]
+
+
+class NetworkBandwidthGbpsRequest(TypedDict, total=False):
+    Min: Optional[Double]
+    Max: Optional[Double]
 
 
 class TotalLocalStorageGBRequest(TypedDict, total=False):
@@ -5015,6 +5493,8 @@ class InstanceRequirementsRequest(TypedDict, total=False):
     AcceleratorManufacturers: Optional[AcceleratorManufacturerSet]
     AcceleratorNames: Optional[AcceleratorNameSet]
     AcceleratorTotalMemoryMiB: Optional[AcceleratorTotalMemoryMiBRequest]
+    NetworkBandwidthGbps: Optional[NetworkBandwidthGbpsRequest]
+    AllowedInstanceTypes: Optional[AllowedInstanceTypeSet]
 
 
 class Placement(TypedDict, total=False):
@@ -5026,6 +5506,7 @@ class Placement(TypedDict, total=False):
     Tenancy: Optional[Tenancy]
     SpreadDomain: Optional[String]
     HostResourceGroupArn: Optional[String]
+    GroupId: Optional[PlacementGroupId]
 
 
 class FleetLaunchTemplateOverridesRequest(TypedDict, total=False):
@@ -5037,6 +5518,7 @@ class FleetLaunchTemplateOverridesRequest(TypedDict, total=False):
     Priority: Optional[Double]
     Placement: Optional[Placement]
     InstanceRequirements: Optional[InstanceRequirementsRequest]
+    ImageId: Optional[ImageId]
 
 
 FleetLaunchTemplateOverridesListRequest = List[FleetLaunchTemplateOverridesRequest]
@@ -5121,10 +5603,11 @@ class CreateFlowLogsRequest(ServiceRequest):
     DryRun: Optional[Boolean]
     ClientToken: Optional[String]
     DeliverLogsPermissionArn: Optional[String]
+    DeliverCrossAccountRole: Optional[String]
     LogGroupName: Optional[String]
     ResourceIds: FlowLogResourceIds
     ResourceType: FlowLogsResourceType
-    TrafficType: TrafficType
+    TrafficType: Optional[TrafficType]
     LogDestinationType: Optional[LogDestinationType]
     LogDestination: Optional[String]
     LogFormat: Optional[String]
@@ -5478,6 +5961,7 @@ class LaunchTemplatePlacementRequest(TypedDict, total=False):
     SpreadDomain: Optional[String]
     HostResourceGroupArn: Optional[String]
     PartitionNumber: Optional[Integer]
+    GroupId: Optional[PlacementGroupId]
 
 
 class LaunchTemplatesMonitoringRequest(TypedDict, total=False):
@@ -5743,6 +6227,7 @@ class LaunchTemplatePlacement(TypedDict, total=False):
     SpreadDomain: Optional[String]
     HostResourceGroupArn: Optional[String]
     PartitionNumber: Optional[Integer]
+    GroupId: Optional[PlacementGroupId]
 
 
 class LaunchTemplatesMonitoring(TypedDict, total=False):
@@ -5878,8 +6363,9 @@ class CreateLaunchTemplateVersionResult(TypedDict, total=False):
 class CreateLocalGatewayRouteRequest(ServiceRequest):
     DestinationCidrBlock: String
     LocalGatewayRouteTableId: LocalGatewayRoutetableId
-    LocalGatewayVirtualInterfaceGroupId: LocalGatewayVirtualInterfaceGroupId
+    LocalGatewayVirtualInterfaceGroupId: Optional[LocalGatewayVirtualInterfaceGroupId]
     DryRun: Optional[Boolean]
+    NetworkInterfaceId: Optional[NetworkInterfaceId]
 
 
 class LocalGatewayRoute(TypedDict, total=False):
@@ -5890,10 +6376,67 @@ class LocalGatewayRoute(TypedDict, total=False):
     LocalGatewayRouteTableId: Optional[LocalGatewayRoutetableId]
     LocalGatewayRouteTableArn: Optional[ResourceArn]
     OwnerId: Optional[String]
+    SubnetId: Optional[SubnetId]
+    CoipPoolId: Optional[CoipPoolId]
+    NetworkInterfaceId: Optional[NetworkInterfaceId]
 
 
 class CreateLocalGatewayRouteResult(TypedDict, total=False):
     Route: Optional[LocalGatewayRoute]
+
+
+class CreateLocalGatewayRouteTableRequest(ServiceRequest):
+    LocalGatewayId: LocalGatewayId
+    Mode: Optional[LocalGatewayRouteTableMode]
+    TagSpecifications: Optional[TagSpecificationList]
+    DryRun: Optional[Boolean]
+
+
+class StateReason(TypedDict, total=False):
+    Code: Optional[String]
+    Message: Optional[String]
+
+
+class LocalGatewayRouteTable(TypedDict, total=False):
+    LocalGatewayRouteTableId: Optional[String]
+    LocalGatewayRouteTableArn: Optional[ResourceArn]
+    LocalGatewayId: Optional[LocalGatewayId]
+    OutpostArn: Optional[String]
+    OwnerId: Optional[String]
+    State: Optional[String]
+    Tags: Optional[TagList]
+    Mode: Optional[LocalGatewayRouteTableMode]
+    StateReason: Optional[StateReason]
+
+
+class CreateLocalGatewayRouteTableResult(TypedDict, total=False):
+    LocalGatewayRouteTable: Optional[LocalGatewayRouteTable]
+
+
+class CreateLocalGatewayRouteTableVirtualInterfaceGroupAssociationRequest(ServiceRequest):
+    LocalGatewayRouteTableId: LocalGatewayRoutetableId
+    LocalGatewayVirtualInterfaceGroupId: LocalGatewayVirtualInterfaceGroupId
+    TagSpecifications: Optional[TagSpecificationList]
+    DryRun: Optional[Boolean]
+
+
+class LocalGatewayRouteTableVirtualInterfaceGroupAssociation(TypedDict, total=False):
+    LocalGatewayRouteTableVirtualInterfaceGroupAssociationId: Optional[
+        LocalGatewayRouteTableVirtualInterfaceGroupAssociationId
+    ]
+    LocalGatewayVirtualInterfaceGroupId: Optional[LocalGatewayVirtualInterfaceGroupId]
+    LocalGatewayId: Optional[String]
+    LocalGatewayRouteTableId: Optional[LocalGatewayId]
+    LocalGatewayRouteTableArn: Optional[ResourceArn]
+    OwnerId: Optional[String]
+    State: Optional[String]
+    Tags: Optional[TagList]
+
+
+class CreateLocalGatewayRouteTableVirtualInterfaceGroupAssociationResult(TypedDict, total=False):
+    LocalGatewayRouteTableVirtualInterfaceGroupAssociation: Optional[
+        LocalGatewayRouteTableVirtualInterfaceGroupAssociation
+    ]
 
 
 class CreateLocalGatewayRouteTableVpcAssociationRequest(ServiceRequest):
@@ -5952,6 +6495,7 @@ class CreateNatGatewayRequest(ServiceRequest):
     SubnetId: SubnetId
     TagSpecifications: Optional[TagSpecificationList]
     ConnectivityType: Optional[ConnectivityType]
+    PrivateIpAddress: Optional[String]
 
 
 class ProvisionedBandwidth(TypedDict, total=False):
@@ -6098,6 +6642,8 @@ class NetworkInsightsPath(TypedDict, total=False):
     CreatedDate: Optional[MillisecondDateTime]
     Source: Optional[String]
     Destination: Optional[String]
+    SourceArn: Optional[ResourceArn]
+    DestinationArn: Optional[ResourceArn]
     SourceIp: Optional[IpAddress]
     DestinationIp: Optional[IpAddress]
     Protocol: Optional[Protocol]
@@ -6197,6 +6743,7 @@ class NetworkInterfaceAttachment(TypedDict, total=False):
     InstanceId: Optional[String]
     InstanceOwnerId: Optional[String]
     Status: Optional[AttachmentStatus]
+    EnaSrdSpecification: Optional[AttachmentEnaSrdSpecification]
 
 
 class NetworkInterface(TypedDict, total=False):
@@ -6272,6 +6819,8 @@ class CreateReplaceRootVolumeTaskRequest(ServiceRequest):
     ClientToken: Optional[String]
     DryRun: Optional[Boolean]
     TagSpecifications: Optional[TagSpecificationList]
+    ImageId: Optional[ImageId]
+    DeleteReplacedRootVolume: Optional[Boolean]
 
 
 class ReplaceRootVolumeTask(TypedDict, total=False):
@@ -6281,6 +6830,9 @@ class ReplaceRootVolumeTask(TypedDict, total=False):
     StartTime: Optional[String]
     CompleteTime: Optional[String]
     Tags: Optional[TagList]
+    ImageId: Optional[ImageId]
+    SnapshotId: Optional[SnapshotId]
+    DeleteReplacedRootVolume: Optional[Boolean]
 
 
 class CreateReplaceRootVolumeTaskResult(TypedDict, total=False):
@@ -6424,9 +6976,13 @@ class CreateSnapshotRequest(ServiceRequest):
     DryRun: Optional[Boolean]
 
 
+VolumeIdStringList = List[VolumeId]
+
+
 class InstanceSpecification(TypedDict, total=False):
     InstanceId: Optional[InstanceId]
     ExcludeBootVolume: Optional[Boolean]
+    ExcludeDataVolumeIds: Optional[VolumeIdStringList]
 
 
 class CreateSnapshotsRequest(ServiceRequest):
@@ -6789,17 +7345,40 @@ class CreateTransitGatewayMulticastDomainResult(TypedDict, total=False):
     TransitGatewayMulticastDomain: Optional[TransitGatewayMulticastDomain]
 
 
+class CreateTransitGatewayPeeringAttachmentRequestOptions(TypedDict, total=False):
+    DynamicRouting: Optional[DynamicRoutingValue]
+
+
 class CreateTransitGatewayPeeringAttachmentRequest(ServiceRequest):
     TransitGatewayId: TransitGatewayId
     PeerTransitGatewayId: TransitAssociationGatewayId
     PeerAccountId: String
     PeerRegion: String
+    Options: Optional[CreateTransitGatewayPeeringAttachmentRequestOptions]
     TagSpecifications: Optional[TagSpecificationList]
     DryRun: Optional[Boolean]
 
 
 class CreateTransitGatewayPeeringAttachmentResult(TypedDict, total=False):
     TransitGatewayPeeringAttachment: Optional[TransitGatewayPeeringAttachment]
+
+
+class CreateTransitGatewayPolicyTableRequest(ServiceRequest):
+    TransitGatewayId: TransitGatewayId
+    TagSpecifications: Optional[TagSpecificationList]
+    DryRun: Optional[Boolean]
+
+
+class TransitGatewayPolicyTable(TypedDict, total=False):
+    TransitGatewayPolicyTableId: Optional[TransitGatewayPolicyTableId]
+    TransitGatewayId: Optional[TransitGatewayId]
+    State: Optional[TransitGatewayPolicyTableState]
+    CreationTime: Optional[DateTime]
+    Tags: Optional[TagList]
+
+
+class CreateTransitGatewayPolicyTableResult(TypedDict, total=False):
+    TransitGatewayPolicyTable: Optional[TransitGatewayPolicyTable]
 
 
 class CreateTransitGatewayPrefixListReferenceRequest(ServiceRequest):
@@ -6898,6 +7477,7 @@ TransitGatewayRouteAttachmentList = List[TransitGatewayRouteAttachment]
 class TransitGatewayRoute(TypedDict, total=False):
     DestinationCidrBlock: Optional[String]
     PrefixListId: Optional[PrefixListResourceId]
+    TransitGatewayRouteTableAnnouncementId: Optional[TransitGatewayRouteTableAnnouncementId]
     TransitGatewayAttachments: Optional[TransitGatewayRouteAttachmentList]
     Type: Optional[TransitGatewayRouteType]
     State: Optional[TransitGatewayRouteState]
@@ -6905,6 +7485,31 @@ class TransitGatewayRoute(TypedDict, total=False):
 
 class CreateTransitGatewayRouteResult(TypedDict, total=False):
     Route: Optional[TransitGatewayRoute]
+
+
+class CreateTransitGatewayRouteTableAnnouncementRequest(ServiceRequest):
+    TransitGatewayRouteTableId: TransitGatewayRouteTableId
+    PeeringAttachmentId: TransitGatewayAttachmentId
+    TagSpecifications: Optional[TagSpecificationList]
+    DryRun: Optional[Boolean]
+
+
+class TransitGatewayRouteTableAnnouncement(TypedDict, total=False):
+    TransitGatewayRouteTableAnnouncementId: Optional[TransitGatewayRouteTableAnnouncementId]
+    TransitGatewayId: Optional[TransitGatewayId]
+    CoreNetworkId: Optional[String]
+    PeerTransitGatewayId: Optional[TransitGatewayId]
+    PeerCoreNetworkId: Optional[String]
+    PeeringAttachmentId: Optional[TransitGatewayAttachmentId]
+    AnnouncementDirection: Optional[TransitGatewayRouteTableAnnouncementDirection]
+    TransitGatewayRouteTableId: Optional[TransitGatewayRouteTableId]
+    State: Optional[TransitGatewayRouteTableAnnouncementState]
+    CreationTime: Optional[DateTime]
+    Tags: Optional[TagList]
+
+
+class CreateTransitGatewayRouteTableAnnouncementResult(TypedDict, total=False):
+    TransitGatewayRouteTableAnnouncement: Optional[TransitGatewayRouteTableAnnouncement]
 
 
 class CreateTransitGatewayRouteTableRequest(ServiceRequest):
@@ -6944,6 +7549,155 @@ class CreateTransitGatewayVpcAttachmentRequest(ServiceRequest):
 
 class CreateTransitGatewayVpcAttachmentResult(TypedDict, total=False):
     TransitGatewayVpcAttachment: Optional[TransitGatewayVpcAttachment]
+
+
+class CreateVerifiedAccessEndpointEniOptions(TypedDict, total=False):
+    NetworkInterfaceId: Optional[NetworkInterfaceId]
+    Protocol: Optional[VerifiedAccessEndpointProtocol]
+    Port: Optional[VerifiedAccessEndpointPortNumber]
+
+
+CreateVerifiedAccessEndpointSubnetIdList = List[SubnetId]
+
+
+class CreateVerifiedAccessEndpointLoadBalancerOptions(TypedDict, total=False):
+    Protocol: Optional[VerifiedAccessEndpointProtocol]
+    Port: Optional[VerifiedAccessEndpointPortNumber]
+    LoadBalancerArn: Optional[LoadBalancerArn]
+    SubnetIds: Optional[CreateVerifiedAccessEndpointSubnetIdList]
+
+
+SecurityGroupIdList = List[SecurityGroupId]
+
+
+class CreateVerifiedAccessEndpointRequest(ServiceRequest):
+    VerifiedAccessGroupId: VerifiedAccessGroupId
+    EndpointType: VerifiedAccessEndpointType
+    AttachmentType: VerifiedAccessEndpointAttachmentType
+    DomainCertificateArn: CertificateArn
+    ApplicationDomain: String
+    EndpointDomainPrefix: String
+    SecurityGroupIds: Optional[SecurityGroupIdList]
+    LoadBalancerOptions: Optional[CreateVerifiedAccessEndpointLoadBalancerOptions]
+    NetworkInterfaceOptions: Optional[CreateVerifiedAccessEndpointEniOptions]
+    Description: Optional[String]
+    PolicyDocument: Optional[String]
+    TagSpecifications: Optional[TagSpecificationList]
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class VerifiedAccessEndpointStatus(TypedDict, total=False):
+    Code: Optional[VerifiedAccessEndpointStatusCode]
+    Message: Optional[String]
+
+
+class VerifiedAccessEndpointEniOptions(TypedDict, total=False):
+    NetworkInterfaceId: Optional[NetworkInterfaceId]
+    Protocol: Optional[VerifiedAccessEndpointProtocol]
+    Port: Optional[VerifiedAccessEndpointPortNumber]
+
+
+VerifiedAccessEndpointSubnetIdList = List[SubnetId]
+
+
+class VerifiedAccessEndpointLoadBalancerOptions(TypedDict, total=False):
+    Protocol: Optional[VerifiedAccessEndpointProtocol]
+    Port: Optional[VerifiedAccessEndpointPortNumber]
+    LoadBalancerArn: Optional[String]
+    SubnetIds: Optional[VerifiedAccessEndpointSubnetIdList]
+
+
+class VerifiedAccessEndpoint(TypedDict, total=False):
+    VerifiedAccessInstanceId: Optional[String]
+    VerifiedAccessGroupId: Optional[String]
+    VerifiedAccessEndpointId: Optional[String]
+    ApplicationDomain: Optional[String]
+    EndpointType: Optional[VerifiedAccessEndpointType]
+    AttachmentType: Optional[VerifiedAccessEndpointAttachmentType]
+    DomainCertificateArn: Optional[String]
+    EndpointDomain: Optional[String]
+    DeviceValidationDomain: Optional[String]
+    SecurityGroupIds: Optional[SecurityGroupIdList]
+    LoadBalancerOptions: Optional[VerifiedAccessEndpointLoadBalancerOptions]
+    NetworkInterfaceOptions: Optional[VerifiedAccessEndpointEniOptions]
+    Status: Optional[VerifiedAccessEndpointStatus]
+    Description: Optional[String]
+    CreationTime: Optional[String]
+    LastUpdatedTime: Optional[String]
+    DeletionTime: Optional[String]
+    Tags: Optional[TagList]
+
+
+class CreateVerifiedAccessEndpointResult(TypedDict, total=False):
+    VerifiedAccessEndpoint: Optional[VerifiedAccessEndpoint]
+
+
+class CreateVerifiedAccessGroupRequest(ServiceRequest):
+    VerifiedAccessInstanceId: VerifiedAccessInstanceId
+    Description: Optional[String]
+    PolicyDocument: Optional[String]
+    TagSpecifications: Optional[TagSpecificationList]
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class VerifiedAccessGroup(TypedDict, total=False):
+    VerifiedAccessGroupId: Optional[String]
+    VerifiedAccessInstanceId: Optional[String]
+    Description: Optional[String]
+    Owner: Optional[String]
+    VerifiedAccessGroupArn: Optional[String]
+    CreationTime: Optional[String]
+    LastUpdatedTime: Optional[String]
+    DeletionTime: Optional[String]
+    Tags: Optional[TagList]
+
+
+class CreateVerifiedAccessGroupResult(TypedDict, total=False):
+    VerifiedAccessGroup: Optional[VerifiedAccessGroup]
+
+
+class CreateVerifiedAccessInstanceRequest(ServiceRequest):
+    Description: Optional[String]
+    TagSpecifications: Optional[TagSpecificationList]
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class CreateVerifiedAccessInstanceResult(TypedDict, total=False):
+    VerifiedAccessInstance: Optional[VerifiedAccessInstance]
+
+
+class CreateVerifiedAccessTrustProviderDeviceOptions(TypedDict, total=False):
+    TenantId: Optional[String]
+
+
+class CreateVerifiedAccessTrustProviderOidcOptions(TypedDict, total=False):
+    Issuer: Optional[String]
+    AuthorizationEndpoint: Optional[String]
+    TokenEndpoint: Optional[String]
+    UserInfoEndpoint: Optional[String]
+    ClientId: Optional[String]
+    ClientSecret: Optional[String]
+    Scope: Optional[String]
+
+
+class CreateVerifiedAccessTrustProviderRequest(ServiceRequest):
+    TrustProviderType: TrustProviderType
+    UserTrustProviderType: Optional[UserTrustProviderType]
+    DeviceTrustProviderType: Optional[DeviceTrustProviderType]
+    OidcOptions: Optional[CreateVerifiedAccessTrustProviderOidcOptions]
+    DeviceOptions: Optional[CreateVerifiedAccessTrustProviderDeviceOptions]
+    PolicyReferenceName: String
+    Description: Optional[String]
+    TagSpecifications: Optional[TagSpecificationList]
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class CreateVerifiedAccessTrustProviderResult(TypedDict, total=False):
+    VerifiedAccessTrustProvider: Optional[VerifiedAccessTrustProvider]
 
 
 class CreateVolumePermission(TypedDict, total=False):
@@ -7149,6 +7903,10 @@ class CreateVpcResult(TypedDict, total=False):
     Vpc: Optional[Vpc]
 
 
+class VpnTunnelLogOptionsSpecification(TypedDict, total=False):
+    CloudWatchLogOptions: Optional[CloudWatchLogOptionsSpecification]
+
+
 class IKEVersionsRequestListValue(TypedDict, total=False):
     Value: Optional[String]
 
@@ -7217,6 +7975,7 @@ class VpnTunnelOptionsSpecification(TypedDict, total=False):
     Phase2DHGroupNumbers: Optional[Phase2DHGroupNumbersRequestList]
     IKEVersions: Optional[IKEVersionsRequestList]
     StartupAction: Optional[String]
+    LogOptions: Optional[VpnTunnelLogOptionsSpecification]
 
 
 VpnTunnelOptionsSpecificationsList = List[VpnTunnelOptionsSpecification]
@@ -7264,6 +8023,10 @@ class VpnStaticRoute(TypedDict, total=False):
 
 
 VpnStaticRouteList = List[VpnStaticRoute]
+
+
+class VpnTunnelLogOptions(TypedDict, total=False):
+    CloudWatchLogOptions: Optional[CloudWatchLogOptions]
 
 
 class IKEVersionsListValue(TypedDict, total=False):
@@ -7335,6 +8098,7 @@ class TunnelOption(TypedDict, total=False):
     Phase2DHGroupNumbers: Optional[Phase2DHGroupNumbersList]
     IkeVersions: Optional[IKEVersionsList]
     StartupAction: Optional[String]
+    LogOptions: Optional[VpnTunnelLogOptions]
 
 
 TunnelOptionsList = List[TunnelOption]
@@ -7409,6 +8173,41 @@ CustomerGatewayIdStringList = List[CustomerGatewayId]
 CustomerGatewayList = List[CustomerGateway]
 
 
+class DataQuery(TypedDict, total=False):
+    Id: Optional[String]
+    Source: Optional[String]
+    Destination: Optional[String]
+    Metric: Optional[MetricType]
+    Statistic: Optional[StatisticType]
+    Period: Optional[PeriodType]
+
+
+DataQueries = List[DataQuery]
+
+
+class MetricPoint(TypedDict, total=False):
+    StartDate: Optional[MillisecondDateTime]
+    EndDate: Optional[MillisecondDateTime]
+    Value: Optional[Float]
+    Status: Optional[String]
+
+
+MetricPoints = List[MetricPoint]
+
+
+class DataResponse(TypedDict, total=False):
+    Id: Optional[String]
+    Source: Optional[String]
+    Destination: Optional[String]
+    Metric: Optional[MetricType]
+    Statistic: Optional[StatisticType]
+    Period: Optional[PeriodType]
+    MetricPoints: Optional[MetricPoints]
+
+
+DataResponses = List[DataResponse]
+
+
 class DeleteCarrierGatewayRequest(ServiceRequest):
     CarrierGatewayId: CarrierGatewayId
     DryRun: Optional[Boolean]
@@ -7436,6 +8235,25 @@ class DeleteClientVpnRouteRequest(ServiceRequest):
 
 class DeleteClientVpnRouteResult(TypedDict, total=False):
     Status: Optional[ClientVpnRouteStatus]
+
+
+class DeleteCoipCidrRequest(ServiceRequest):
+    Cidr: String
+    CoipPoolId: Ipv4PoolCoipId
+    DryRun: Optional[Boolean]
+
+
+class DeleteCoipCidrResult(TypedDict, total=False):
+    CoipCidr: Optional[CoipCidr]
+
+
+class DeleteCoipPoolRequest(ServiceRequest):
+    CoipPoolId: Ipv4PoolCoipId
+    DryRun: Optional[Boolean]
+
+
+class DeleteCoipPoolResult(TypedDict, total=False):
+    CoipPool: Optional[CoipPool]
 
 
 class DeleteCustomerGatewayRequest(ServiceRequest):
@@ -7629,6 +8447,26 @@ class DeleteLocalGatewayRouteRequest(ServiceRequest):
 
 class DeleteLocalGatewayRouteResult(TypedDict, total=False):
     Route: Optional[LocalGatewayRoute]
+
+
+class DeleteLocalGatewayRouteTableRequest(ServiceRequest):
+    LocalGatewayRouteTableId: LocalGatewayRoutetableId
+    DryRun: Optional[Boolean]
+
+
+class DeleteLocalGatewayRouteTableResult(TypedDict, total=False):
+    LocalGatewayRouteTable: Optional[LocalGatewayRouteTable]
+
+
+class DeleteLocalGatewayRouteTableVirtualInterfaceGroupAssociationRequest(ServiceRequest):
+    LocalGatewayRouteTableVirtualInterfaceGroupAssociationId: LocalGatewayRouteTableVirtualInterfaceGroupAssociationId
+    DryRun: Optional[Boolean]
+
+
+class DeleteLocalGatewayRouteTableVirtualInterfaceGroupAssociationResult(TypedDict, total=False):
+    LocalGatewayRouteTableVirtualInterfaceGroupAssociation: Optional[
+        LocalGatewayRouteTableVirtualInterfaceGroupAssociation
+    ]
 
 
 class DeleteLocalGatewayRouteTableVpcAssociationRequest(ServiceRequest):
@@ -7888,6 +8726,15 @@ class DeleteTransitGatewayPeeringAttachmentResult(TypedDict, total=False):
     TransitGatewayPeeringAttachment: Optional[TransitGatewayPeeringAttachment]
 
 
+class DeleteTransitGatewayPolicyTableRequest(ServiceRequest):
+    TransitGatewayPolicyTableId: TransitGatewayPolicyTableId
+    DryRun: Optional[Boolean]
+
+
+class DeleteTransitGatewayPolicyTableResult(TypedDict, total=False):
+    TransitGatewayPolicyTable: Optional[TransitGatewayPolicyTable]
+
+
 class DeleteTransitGatewayPrefixListReferenceRequest(ServiceRequest):
     TransitGatewayRouteTableId: TransitGatewayRouteTableId
     PrefixListId: PrefixListResourceId
@@ -7917,6 +8764,15 @@ class DeleteTransitGatewayRouteResult(TypedDict, total=False):
     Route: Optional[TransitGatewayRoute]
 
 
+class DeleteTransitGatewayRouteTableAnnouncementRequest(ServiceRequest):
+    TransitGatewayRouteTableAnnouncementId: TransitGatewayRouteTableAnnouncementId
+    DryRun: Optional[Boolean]
+
+
+class DeleteTransitGatewayRouteTableAnnouncementResult(TypedDict, total=False):
+    TransitGatewayRouteTableAnnouncement: Optional[TransitGatewayRouteTableAnnouncement]
+
+
 class DeleteTransitGatewayRouteTableRequest(ServiceRequest):
     TransitGatewayRouteTableId: TransitGatewayRouteTableId
     DryRun: Optional[Boolean]
@@ -7933,6 +8789,46 @@ class DeleteTransitGatewayVpcAttachmentRequest(ServiceRequest):
 
 class DeleteTransitGatewayVpcAttachmentResult(TypedDict, total=False):
     TransitGatewayVpcAttachment: Optional[TransitGatewayVpcAttachment]
+
+
+class DeleteVerifiedAccessEndpointRequest(ServiceRequest):
+    VerifiedAccessEndpointId: VerifiedAccessEndpointId
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class DeleteVerifiedAccessEndpointResult(TypedDict, total=False):
+    VerifiedAccessEndpoint: Optional[VerifiedAccessEndpoint]
+
+
+class DeleteVerifiedAccessGroupRequest(ServiceRequest):
+    VerifiedAccessGroupId: VerifiedAccessGroupId
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class DeleteVerifiedAccessGroupResult(TypedDict, total=False):
+    VerifiedAccessGroup: Optional[VerifiedAccessGroup]
+
+
+class DeleteVerifiedAccessInstanceRequest(ServiceRequest):
+    VerifiedAccessInstanceId: VerifiedAccessInstanceId
+    DryRun: Optional[Boolean]
+    ClientToken: Optional[String]
+
+
+class DeleteVerifiedAccessInstanceResult(TypedDict, total=False):
+    VerifiedAccessInstance: Optional[VerifiedAccessInstance]
+
+
+class DeleteVerifiedAccessTrustProviderRequest(ServiceRequest):
+    VerifiedAccessTrustProviderId: VerifiedAccessTrustProviderId
+    DryRun: Optional[Boolean]
+    ClientToken: Optional[String]
+
+
+class DeleteVerifiedAccessTrustProviderResult(TypedDict, total=False):
+    VerifiedAccessTrustProvider: Optional[VerifiedAccessTrustProvider]
 
 
 class DeleteVolumeRequest(ServiceRequest):
@@ -8116,6 +9012,18 @@ class DescribeAccountAttributesResult(TypedDict, total=False):
     AccountAttributes: Optional[AccountAttributeList]
 
 
+class DescribeAddressTransfersRequest(ServiceRequest):
+    AllocationIds: Optional[AllocationIdList]
+    NextToken: Optional[String]
+    MaxResults: Optional[DescribeAddressTransfersMaxResults]
+    DryRun: Optional[Boolean]
+
+
+class DescribeAddressTransfersResult(TypedDict, total=False):
+    AddressTransfers: Optional[AddressTransferList]
+    NextToken: Optional[String]
+
+
 class DescribeAddressesAttributeRequest(ServiceRequest):
     AllocationIds: Optional[AllocationIds]
     Attribute: Optional[AddressAttributeName]
@@ -8183,6 +9091,29 @@ class DescribeAvailabilityZonesRequest(ServiceRequest):
 
 class DescribeAvailabilityZonesResult(TypedDict, total=False):
     AvailabilityZones: Optional[AvailabilityZoneList]
+
+
+class DescribeAwsNetworkPerformanceMetricSubscriptionsRequest(ServiceRequest):
+    MaxResults: Optional[MaxResultsParam]
+    NextToken: Optional[String]
+    Filters: Optional[FilterList]
+    DryRun: Optional[Boolean]
+
+
+class Subscription(TypedDict, total=False):
+    Source: Optional[String]
+    Destination: Optional[String]
+    Metric: Optional[MetricType]
+    Statistic: Optional[StatisticType]
+    Period: Optional[PeriodType]
+
+
+SubscriptionList = List[Subscription]
+
+
+class DescribeAwsNetworkPerformanceMetricSubscriptionsResult(TypedDict, total=False):
+    NextToken: Optional[String]
+    Subscriptions: Optional[SubscriptionList]
 
 
 class DescribeBundleTasksRequest(ServiceRequest):
@@ -8742,6 +9673,7 @@ class FlowLog(TypedDict, total=False):
     CreationTime: Optional[MillisecondDateTime]
     DeliverLogsErrorMessage: Optional[String]
     DeliverLogsPermissionArn: Optional[String]
+    DeliverCrossAccountRole: Optional[String]
     DeliverLogsStatus: Optional[String]
     FlowLogId: Optional[String]
     FlowLogStatus: Optional[String]
@@ -8811,6 +9743,9 @@ class DescribeFpgaImagesRequest(ServiceRequest):
     MaxResults: Optional[DescribeFpgaImagesMaxResults]
 
 
+InstanceTypesList = List[String]
+
+
 class FpgaImageState(TypedDict, total=False):
     Code: Optional[FpgaImageStateCode]
     Message: Optional[String]
@@ -8839,6 +9774,7 @@ class FpgaImage(TypedDict, total=False):
     Tags: Optional[TagList]
     Public: Optional[Boolean]
     DataRetentionSupport: Optional[Boolean]
+    InstanceTypes: Optional[InstanceTypesList]
 
 
 FpgaImageList = List[FpgaImage]
@@ -9019,11 +9955,8 @@ class DescribeImagesRequest(ServiceRequest):
     Owners: Optional[OwnerStringList]
     IncludeDeprecated: Optional[Boolean]
     DryRun: Optional[Boolean]
-
-
-class StateReason(TypedDict, total=False):
-    Code: Optional[String]
-    Message: Optional[String]
+    MaxResults: Optional[Integer]
+    NextToken: Optional[String]
 
 
 class Image(TypedDict, total=False):
@@ -9056,6 +9989,7 @@ class Image(TypedDict, total=False):
     BootMode: Optional[BootModeValues]
     TpmSupport: Optional[TpmSupportValues]
     DeprecationTime: Optional[String]
+    ImdsSupport: Optional[ImdsSupportValues]
 
 
 ImageList = List[Image]
@@ -9063,6 +9997,7 @@ ImageList = List[Image]
 
 class DescribeImagesResult(TypedDict, total=False):
     Images: Optional[ImageList]
+    NextToken: Optional[String]
 
 
 ImportTaskIdList = List[ImportImageTaskId]
@@ -9401,6 +10336,7 @@ class NetworkInfo(TypedDict, total=False):
     EfaSupported: Optional[EfaSupportedFlag]
     EfaInfo: Optional[EfaInfo]
     EncryptionInTransitSupported: Optional[EncryptionInTransitSupported]
+    EnaSrdSupported: Optional[EnaSrdSupported]
 
 
 class EbsOptimizedInfo(TypedDict, total=False):
@@ -9910,19 +10846,6 @@ class DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsRequest(Ser
     DryRun: Optional[Boolean]
 
 
-class LocalGatewayRouteTableVirtualInterfaceGroupAssociation(TypedDict, total=False):
-    LocalGatewayRouteTableVirtualInterfaceGroupAssociationId: Optional[
-        LocalGatewayRouteTableVirtualInterfaceGroupAssociationId
-    ]
-    LocalGatewayVirtualInterfaceGroupId: Optional[LocalGatewayVirtualInterfaceGroupId]
-    LocalGatewayId: Optional[String]
-    LocalGatewayRouteTableId: Optional[LocalGatewayId]
-    LocalGatewayRouteTableArn: Optional[ResourceArn]
-    OwnerId: Optional[String]
-    State: Optional[String]
-    Tags: Optional[TagList]
-
-
 LocalGatewayRouteTableVirtualInterfaceGroupAssociationSet = List[
     LocalGatewayRouteTableVirtualInterfaceGroupAssociation
 ]
@@ -9963,16 +10886,6 @@ class DescribeLocalGatewayRouteTablesRequest(ServiceRequest):
     MaxResults: Optional[LocalGatewayMaxResults]
     NextToken: Optional[String]
     DryRun: Optional[Boolean]
-
-
-class LocalGatewayRouteTable(TypedDict, total=False):
-    LocalGatewayRouteTableId: Optional[String]
-    LocalGatewayRouteTableArn: Optional[ResourceArn]
-    LocalGatewayId: Optional[LocalGatewayId]
-    OutpostArn: Optional[String]
-    OwnerId: Optional[String]
-    State: Optional[String]
-    Tags: Optional[TagList]
 
 
 LocalGatewayRouteTableSet = List[LocalGatewayRouteTable]
@@ -10212,68 +11125,11 @@ class DescribeNetworkInsightsAnalysesRequest(ServiceRequest):
     NextToken: Optional[NextToken]
 
 
-StringList = List[String]
-
-
-class Explanation(TypedDict, total=False):
-    Acl: Optional[AnalysisComponent]
-    AclRule: Optional[AnalysisAclRule]
-    Address: Optional[IpAddress]
-    Addresses: Optional[IpAddressList]
-    AttachedTo: Optional[AnalysisComponent]
-    AvailabilityZones: Optional[ValueStringList]
-    Cidrs: Optional[ValueStringList]
-    Component: Optional[AnalysisComponent]
-    CustomerGateway: Optional[AnalysisComponent]
-    Destination: Optional[AnalysisComponent]
-    DestinationVpc: Optional[AnalysisComponent]
-    Direction: Optional[String]
-    ExplanationCode: Optional[String]
-    IngressRouteTable: Optional[AnalysisComponent]
-    InternetGateway: Optional[AnalysisComponent]
-    LoadBalancerArn: Optional[ResourceArn]
-    ClassicLoadBalancerListener: Optional[AnalysisLoadBalancerListener]
-    LoadBalancerListenerPort: Optional[Port]
-    LoadBalancerTarget: Optional[AnalysisLoadBalancerTarget]
-    LoadBalancerTargetGroup: Optional[AnalysisComponent]
-    LoadBalancerTargetGroups: Optional[AnalysisComponentList]
-    LoadBalancerTargetPort: Optional[Port]
-    ElasticLoadBalancerListener: Optional[AnalysisComponent]
-    MissingComponent: Optional[String]
-    NatGateway: Optional[AnalysisComponent]
-    NetworkInterface: Optional[AnalysisComponent]
-    PacketField: Optional[String]
-    VpcPeeringConnection: Optional[AnalysisComponent]
-    Port: Optional[Port]
-    PortRanges: Optional[PortRangeList]
-    PrefixList: Optional[AnalysisComponent]
-    Protocols: Optional[StringList]
-    RouteTableRoute: Optional[AnalysisRouteTableRoute]
-    RouteTable: Optional[AnalysisComponent]
-    SecurityGroup: Optional[AnalysisComponent]
-    SecurityGroupRule: Optional[AnalysisSecurityGroupRule]
-    SecurityGroups: Optional[AnalysisComponentList]
-    SourceVpc: Optional[AnalysisComponent]
-    State: Optional[String]
-    Subnet: Optional[AnalysisComponent]
-    SubnetRouteTable: Optional[AnalysisComponent]
-    Vpc: Optional[AnalysisComponent]
-    VpcEndpoint: Optional[AnalysisComponent]
-    VpnConnection: Optional[AnalysisComponent]
-    VpnGateway: Optional[AnalysisComponent]
-    TransitGateway: Optional[AnalysisComponent]
-    TransitGatewayRouteTable: Optional[AnalysisComponent]
-    TransitGatewayRouteTableRoute: Optional[TransitGatewayRouteTableRoute]
-    TransitGatewayAttachment: Optional[AnalysisComponent]
-
-
-ExplanationList = List[Explanation]
-
-
 class NetworkInsightsAnalysis(TypedDict, total=False):
     NetworkInsightsAnalysisId: Optional[NetworkInsightsAnalysisId]
     NetworkInsightsAnalysisArn: Optional[ResourceArn]
     NetworkInsightsPathId: Optional[NetworkInsightsPathId]
+    AdditionalAccounts: Optional[ValueStringList]
     FilterInArns: Optional[ArnList]
     StartDate: Optional[MillisecondDateTime]
     Status: Optional[AnalysisStatus]
@@ -10284,6 +11140,7 @@ class NetworkInsightsAnalysis(TypedDict, total=False):
     ReturnPathComponents: Optional[PathComponentList]
     Explanations: Optional[ExplanationList]
     AlternatePathHints: Optional[AlternatePathHintList]
+    SuggestedAccounts: Optional[ValueStringList]
     Tags: Optional[TagList]
 
 
@@ -11538,6 +12395,46 @@ class DescribeTransitGatewayPeeringAttachmentsResult(TypedDict, total=False):
     NextToken: Optional[String]
 
 
+TransitGatewayPolicyTableIdStringList = List[TransitGatewayPolicyTableId]
+
+
+class DescribeTransitGatewayPolicyTablesRequest(ServiceRequest):
+    TransitGatewayPolicyTableIds: Optional[TransitGatewayPolicyTableIdStringList]
+    Filters: Optional[FilterList]
+    MaxResults: Optional[TransitGatewayMaxResults]
+    NextToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+TransitGatewayPolicyTableList = List[TransitGatewayPolicyTable]
+
+
+class DescribeTransitGatewayPolicyTablesResult(TypedDict, total=False):
+    TransitGatewayPolicyTables: Optional[TransitGatewayPolicyTableList]
+    NextToken: Optional[String]
+
+
+TransitGatewayRouteTableAnnouncementIdStringList = List[TransitGatewayRouteTableAnnouncementId]
+
+
+class DescribeTransitGatewayRouteTableAnnouncementsRequest(ServiceRequest):
+    TransitGatewayRouteTableAnnouncementIds: Optional[
+        TransitGatewayRouteTableAnnouncementIdStringList
+    ]
+    Filters: Optional[FilterList]
+    MaxResults: Optional[TransitGatewayMaxResults]
+    NextToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+TransitGatewayRouteTableAnnouncementList = List[TransitGatewayRouteTableAnnouncement]
+
+
+class DescribeTransitGatewayRouteTableAnnouncementsResult(TypedDict, total=False):
+    TransitGatewayRouteTableAnnouncements: Optional[TransitGatewayRouteTableAnnouncementList]
+    NextToken: Optional[String]
+
+
 TransitGatewayRouteTableIdStringList = List[TransitGatewayRouteTableId]
 
 
@@ -11611,6 +12508,137 @@ class DescribeTrunkInterfaceAssociationsResult(TypedDict, total=False):
     NextToken: Optional[String]
 
 
+VerifiedAccessEndpointIdList = List[VerifiedAccessEndpointId]
+
+
+class DescribeVerifiedAccessEndpointsRequest(ServiceRequest):
+    VerifiedAccessEndpointIds: Optional[VerifiedAccessEndpointIdList]
+    VerifiedAccessInstanceId: Optional[VerifiedAccessInstanceId]
+    VerifiedAccessGroupId: Optional[VerifiedAccessGroupId]
+    MaxResults: Optional[DescribeVerifiedAccessEndpointsMaxResults]
+    NextToken: Optional[NextToken]
+    Filters: Optional[FilterList]
+    DryRun: Optional[Boolean]
+
+
+VerifiedAccessEndpointList = List[VerifiedAccessEndpoint]
+
+
+class DescribeVerifiedAccessEndpointsResult(TypedDict, total=False):
+    VerifiedAccessEndpoints: Optional[VerifiedAccessEndpointList]
+    NextToken: Optional[NextToken]
+
+
+VerifiedAccessGroupIdList = List[VerifiedAccessGroupId]
+
+
+class DescribeVerifiedAccessGroupsRequest(ServiceRequest):
+    VerifiedAccessGroupIds: Optional[VerifiedAccessGroupIdList]
+    VerifiedAccessInstanceId: Optional[VerifiedAccessInstanceId]
+    MaxResults: Optional[DescribeVerifiedAccessGroupMaxResults]
+    NextToken: Optional[NextToken]
+    Filters: Optional[FilterList]
+    DryRun: Optional[Boolean]
+
+
+VerifiedAccessGroupList = List[VerifiedAccessGroup]
+
+
+class DescribeVerifiedAccessGroupsResult(TypedDict, total=False):
+    VerifiedAccessGroups: Optional[VerifiedAccessGroupList]
+    NextToken: Optional[NextToken]
+
+
+VerifiedAccessInstanceIdList = List[VerifiedAccessInstanceId]
+
+
+class DescribeVerifiedAccessInstanceLoggingConfigurationsRequest(ServiceRequest):
+    VerifiedAccessInstanceIds: Optional[VerifiedAccessInstanceIdList]
+    MaxResults: Optional[DescribeVerifiedAccessInstanceLoggingConfigurationsMaxResults]
+    NextToken: Optional[NextToken]
+    Filters: Optional[FilterList]
+    DryRun: Optional[Boolean]
+
+
+class VerifiedAccessLogDeliveryStatus(TypedDict, total=False):
+    Code: Optional[VerifiedAccessLogDeliveryStatusCode]
+    Message: Optional[String]
+
+
+class VerifiedAccessLogKinesisDataFirehoseDestination(TypedDict, total=False):
+    Enabled: Optional[Boolean]
+    DeliveryStatus: Optional[VerifiedAccessLogDeliveryStatus]
+    DeliveryStream: Optional[String]
+
+
+class VerifiedAccessLogCloudWatchLogsDestination(TypedDict, total=False):
+    Enabled: Optional[Boolean]
+    DeliveryStatus: Optional[VerifiedAccessLogDeliveryStatus]
+    LogGroup: Optional[String]
+
+
+class VerifiedAccessLogS3Destination(TypedDict, total=False):
+    Enabled: Optional[Boolean]
+    DeliveryStatus: Optional[VerifiedAccessLogDeliveryStatus]
+    BucketName: Optional[String]
+    Prefix: Optional[String]
+    BucketOwner: Optional[String]
+
+
+class VerifiedAccessLogs(TypedDict, total=False):
+    S3: Optional[VerifiedAccessLogS3Destination]
+    CloudWatchLogs: Optional[VerifiedAccessLogCloudWatchLogsDestination]
+    KinesisDataFirehose: Optional[VerifiedAccessLogKinesisDataFirehoseDestination]
+
+
+class VerifiedAccessInstanceLoggingConfiguration(TypedDict, total=False):
+    VerifiedAccessInstanceId: Optional[String]
+    AccessLogs: Optional[VerifiedAccessLogs]
+
+
+VerifiedAccessInstanceLoggingConfigurationList = List[VerifiedAccessInstanceLoggingConfiguration]
+
+
+class DescribeVerifiedAccessInstanceLoggingConfigurationsResult(TypedDict, total=False):
+    LoggingConfigurations: Optional[VerifiedAccessInstanceLoggingConfigurationList]
+    NextToken: Optional[NextToken]
+
+
+class DescribeVerifiedAccessInstancesRequest(ServiceRequest):
+    VerifiedAccessInstanceIds: Optional[VerifiedAccessInstanceIdList]
+    MaxResults: Optional[DescribeVerifiedAccessInstancesMaxResults]
+    NextToken: Optional[NextToken]
+    Filters: Optional[FilterList]
+    DryRun: Optional[Boolean]
+
+
+VerifiedAccessInstanceList = List[VerifiedAccessInstance]
+
+
+class DescribeVerifiedAccessInstancesResult(TypedDict, total=False):
+    VerifiedAccessInstances: Optional[VerifiedAccessInstanceList]
+    NextToken: Optional[NextToken]
+
+
+VerifiedAccessTrustProviderIdList = List[VerifiedAccessTrustProviderId]
+
+
+class DescribeVerifiedAccessTrustProvidersRequest(ServiceRequest):
+    VerifiedAccessTrustProviderIds: Optional[VerifiedAccessTrustProviderIdList]
+    MaxResults: Optional[DescribeVerifiedAccessTrustProvidersMaxResults]
+    NextToken: Optional[NextToken]
+    Filters: Optional[FilterList]
+    DryRun: Optional[Boolean]
+
+
+VerifiedAccessTrustProviderList = List[VerifiedAccessTrustProvider]
+
+
+class DescribeVerifiedAccessTrustProvidersResult(TypedDict, total=False):
+    VerifiedAccessTrustProviders: Optional[VerifiedAccessTrustProviderList]
+    NextToken: Optional[NextToken]
+
+
 class DescribeVolumeAttributeRequest(ServiceRequest):
     Attribute: VolumeAttributeName
     VolumeId: VolumeId
@@ -11621,9 +12649,6 @@ class DescribeVolumeAttributeResult(TypedDict, total=False):
     AutoEnableIO: Optional[AttributeBooleanValue]
     ProductCodes: Optional[ProductCodeList]
     VolumeId: Optional[String]
-
-
-VolumeIdStringList = List[VolumeId]
 
 
 class DescribeVolumeStatusRequest(ServiceRequest):
@@ -11787,6 +12812,7 @@ class DescribeVpcAttributeResult(TypedDict, total=False):
     VpcId: Optional[String]
     EnableDnsHostnames: Optional[AttributeBooleanValue]
     EnableDnsSupport: Optional[AttributeBooleanValue]
+    EnableNetworkAddressUsageMetrics: Optional[AttributeBooleanValue]
 
 
 VpcClassicLinkIdList = List[VpcId]
@@ -11852,6 +12878,8 @@ class VpcEndpointConnection(TypedDict, total=False):
     NetworkLoadBalancerArns: Optional[ValueStringList]
     GatewayLoadBalancerArns: Optional[ValueStringList]
     IpAddressType: Optional[IpAddressType]
+    VpcEndpointConnectionId: Optional[String]
+    Tags: Optional[TagList]
 
 
 VpcEndpointConnectionSet = List[VpcEndpointConnection]
@@ -12041,11 +13069,23 @@ class DetachNetworkInterfaceRequest(ServiceRequest):
     Force: Optional[Boolean]
 
 
+class DetachVerifiedAccessTrustProviderRequest(ServiceRequest):
+    VerifiedAccessInstanceId: VerifiedAccessInstanceId
+    VerifiedAccessTrustProviderId: VerifiedAccessTrustProviderId
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class DetachVerifiedAccessTrustProviderResult(TypedDict, total=False):
+    VerifiedAccessTrustProvider: Optional[VerifiedAccessTrustProvider]
+    VerifiedAccessInstance: Optional[VerifiedAccessInstance]
+
+
 class DetachVolumeRequest(ServiceRequest):
     Device: Optional[String]
     Force: Optional[Boolean]
-    InstanceId: Optional[InstanceId]
-    VolumeId: VolumeId
+    InstanceId: Optional[InstanceIdForResolver]
+    VolumeId: VolumeIdWithResolver
     DryRun: Optional[Boolean]
 
 
@@ -12053,6 +13093,27 @@ class DetachVpnGatewayRequest(ServiceRequest):
     VpcId: VpcId
     VpnGatewayId: VpnGatewayId
     DryRun: Optional[Boolean]
+
+
+class DisableAddressTransferRequest(ServiceRequest):
+    AllocationId: AllocationId
+    DryRun: Optional[Boolean]
+
+
+class DisableAddressTransferResult(TypedDict, total=False):
+    AddressTransfer: Optional[AddressTransfer]
+
+
+class DisableAwsNetworkPerformanceMetricSubscriptionRequest(ServiceRequest):
+    Source: Optional[String]
+    Destination: Optional[String]
+    Metric: Optional[MetricType]
+    Statistic: Optional[StatisticType]
+    DryRun: Optional[Boolean]
+
+
+class DisableAwsNetworkPerformanceMetricSubscriptionResult(TypedDict, total=False):
+    Output: Optional[Boolean]
 
 
 class DisableEbsEncryptionByDefaultRequest(ServiceRequest):
@@ -12158,8 +13219,9 @@ class DisableSerialConsoleAccessResult(TypedDict, total=False):
 
 class DisableTransitGatewayRouteTablePropagationRequest(ServiceRequest):
     TransitGatewayRouteTableId: TransitGatewayRouteTableId
-    TransitGatewayAttachmentId: TransitGatewayAttachmentId
+    TransitGatewayAttachmentId: Optional[TransitGatewayAttachmentId]
     DryRun: Optional[Boolean]
+    TransitGatewayRouteTableAnnouncementId: Optional[TransitGatewayRouteTableAnnouncementId]
 
 
 class TransitGatewayPropagation(TypedDict, total=False):
@@ -12168,6 +13230,7 @@ class TransitGatewayPropagation(TypedDict, total=False):
     ResourceType: Optional[TransitGatewayAttachmentResourceType]
     TransitGatewayRouteTableId: Optional[String]
     State: Optional[TransitGatewayPropagationState]
+    TransitGatewayRouteTableAnnouncementId: Optional[TransitGatewayRouteTableAnnouncementId]
 
 
 class DisableTransitGatewayRouteTablePropagationResult(TypedDict, total=False):
@@ -12273,6 +13336,16 @@ class DisassociateTransitGatewayMulticastDomainResult(TypedDict, total=False):
     Associations: Optional[TransitGatewayMulticastDomainAssociations]
 
 
+class DisassociateTransitGatewayPolicyTableRequest(ServiceRequest):
+    TransitGatewayPolicyTableId: TransitGatewayPolicyTableId
+    TransitGatewayAttachmentId: TransitGatewayAttachmentId
+    DryRun: Optional[Boolean]
+
+
+class DisassociateTransitGatewayPolicyTableResult(TypedDict, total=False):
+    Association: Optional[TransitGatewayPolicyTableAssociation]
+
+
 class DisassociateTransitGatewayRouteTableRequest(ServiceRequest):
     TransitGatewayRouteTableId: TransitGatewayRouteTableId
     TransitGatewayAttachmentId: TransitGatewayAttachmentId
@@ -12342,6 +13415,28 @@ class ElasticInferenceAccelerator(TypedDict, total=False):
 
 
 ElasticInferenceAccelerators = List[ElasticInferenceAccelerator]
+
+
+class EnableAddressTransferRequest(ServiceRequest):
+    AllocationId: AllocationId
+    TransferAccountId: String
+    DryRun: Optional[Boolean]
+
+
+class EnableAddressTransferResult(TypedDict, total=False):
+    AddressTransfer: Optional[AddressTransfer]
+
+
+class EnableAwsNetworkPerformanceMetricSubscriptionRequest(ServiceRequest):
+    Source: Optional[String]
+    Destination: Optional[String]
+    Metric: Optional[MetricType]
+    Statistic: Optional[StatisticType]
+    DryRun: Optional[Boolean]
+
+
+class EnableAwsNetworkPerformanceMetricSubscriptionResult(TypedDict, total=False):
+    Output: Optional[Boolean]
 
 
 class EnableEbsEncryptionByDefaultRequest(ServiceRequest):
@@ -12451,6 +13546,14 @@ class EnableIpamOrganizationAdminAccountResult(TypedDict, total=False):
     Success: Optional[Boolean]
 
 
+class EnableReachabilityAnalyzerOrganizationSharingRequest(ServiceRequest):
+    DryRun: Optional[Boolean]
+
+
+class EnableReachabilityAnalyzerOrganizationSharingResult(TypedDict, total=False):
+    ReturnValue: Optional[Boolean]
+
+
 class EnableSerialConsoleAccessRequest(ServiceRequest):
     DryRun: Optional[Boolean]
 
@@ -12461,8 +13564,9 @@ class EnableSerialConsoleAccessResult(TypedDict, total=False):
 
 class EnableTransitGatewayRouteTablePropagationRequest(ServiceRequest):
     TransitGatewayRouteTableId: TransitGatewayRouteTableId
-    TransitGatewayAttachmentId: TransitGatewayAttachmentId
+    TransitGatewayAttachmentId: Optional[TransitGatewayAttachmentId]
     DryRun: Optional[Boolean]
+    TransitGatewayRouteTableAnnouncementId: Optional[TransitGatewayRouteTableAnnouncementId]
 
 
 class EnableTransitGatewayRouteTablePropagationResult(TypedDict, total=False):
@@ -12586,6 +13690,20 @@ Ipv6CidrAssociationSet = List[Ipv6CidrAssociation]
 
 class GetAssociatedIpv6PoolCidrsResult(TypedDict, total=False):
     Ipv6CidrAssociations: Optional[Ipv6CidrAssociationSet]
+    NextToken: Optional[String]
+
+
+class GetAwsNetworkPerformanceDataRequest(ServiceRequest):
+    DataQueries: Optional[DataQueries]
+    StartTime: Optional[MillisecondDateTime]
+    EndTime: Optional[MillisecondDateTime]
+    MaxResults: Optional[Integer]
+    NextToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class GetAwsNetworkPerformanceDataResult(TypedDict, total=False):
+    DataResponses: Optional[DataResponses]
     NextToken: Optional[String]
 
 
@@ -13111,6 +14229,57 @@ class GetTransitGatewayMulticastDomainAssociationsResult(TypedDict, total=False)
     NextToken: Optional[String]
 
 
+class GetTransitGatewayPolicyTableAssociationsRequest(ServiceRequest):
+    TransitGatewayPolicyTableId: TransitGatewayPolicyTableId
+    Filters: Optional[FilterList]
+    MaxResults: Optional[TransitGatewayMaxResults]
+    NextToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+TransitGatewayPolicyTableAssociationList = List[TransitGatewayPolicyTableAssociation]
+
+
+class GetTransitGatewayPolicyTableAssociationsResult(TypedDict, total=False):
+    Associations: Optional[TransitGatewayPolicyTableAssociationList]
+    NextToken: Optional[String]
+
+
+class GetTransitGatewayPolicyTableEntriesRequest(ServiceRequest):
+    TransitGatewayPolicyTableId: TransitGatewayPolicyTableId
+    Filters: Optional[FilterList]
+    MaxResults: Optional[TransitGatewayMaxResults]
+    NextToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class TransitGatewayPolicyRuleMetaData(TypedDict, total=False):
+    MetaDataKey: Optional[String]
+    MetaDataValue: Optional[String]
+
+
+class TransitGatewayPolicyRule(TypedDict, total=False):
+    SourceCidrBlock: Optional[String]
+    SourcePortRange: Optional[String]
+    DestinationCidrBlock: Optional[String]
+    DestinationPortRange: Optional[String]
+    Protocol: Optional[String]
+    MetaData: Optional[TransitGatewayPolicyRuleMetaData]
+
+
+class TransitGatewayPolicyTableEntry(TypedDict, total=False):
+    PolicyRuleNumber: Optional[String]
+    PolicyRule: Optional[TransitGatewayPolicyRule]
+    TargetRouteTableId: Optional[TransitGatewayRouteTableId]
+
+
+TransitGatewayPolicyTableEntryList = List[TransitGatewayPolicyTableEntry]
+
+
+class GetTransitGatewayPolicyTableEntriesResult(TypedDict, total=False):
+    TransitGatewayPolicyTableEntries: Optional[TransitGatewayPolicyTableEntryList]
+
+
 class GetTransitGatewayPrefixListReferencesRequest(ServiceRequest):
     TransitGatewayRouteTableId: TransitGatewayRouteTableId
     Filters: Optional[FilterList]
@@ -13163,6 +14332,7 @@ class TransitGatewayRouteTablePropagation(TypedDict, total=False):
     ResourceId: Optional[String]
     ResourceType: Optional[TransitGatewayAttachmentResourceType]
     State: Optional[TransitGatewayPropagationState]
+    TransitGatewayRouteTableAnnouncementId: Optional[TransitGatewayRouteTableAnnouncementId]
 
 
 TransitGatewayRouteTablePropagationList = List[TransitGatewayRouteTablePropagation]
@@ -13171,6 +14341,26 @@ TransitGatewayRouteTablePropagationList = List[TransitGatewayRouteTablePropagati
 class GetTransitGatewayRouteTablePropagationsResult(TypedDict, total=False):
     TransitGatewayRouteTablePropagations: Optional[TransitGatewayRouteTablePropagationList]
     NextToken: Optional[String]
+
+
+class GetVerifiedAccessEndpointPolicyRequest(ServiceRequest):
+    VerifiedAccessEndpointId: VerifiedAccessEndpointId
+    DryRun: Optional[Boolean]
+
+
+class GetVerifiedAccessEndpointPolicyResult(TypedDict, total=False):
+    PolicyEnabled: Optional[Boolean]
+    PolicyDocument: Optional[String]
+
+
+class GetVerifiedAccessGroupPolicyRequest(ServiceRequest):
+    VerifiedAccessGroupId: VerifiedAccessGroupId
+    DryRun: Optional[Boolean]
+
+
+class GetVerifiedAccessGroupPolicyResult(TypedDict, total=False):
+    PolicyEnabled: Optional[Boolean]
+    PolicyDocument: Optional[String]
 
 
 class GetVpnConnectionDeviceSampleConfigurationRequest(ServiceRequest):
@@ -13232,6 +14422,7 @@ class ImageAttribute(TypedDict, total=False):
     TpmSupport: Optional[AttributeValue]
     UefiData: Optional[AttributeValue]
     LastLaunchedTime: Optional[AttributeValue]
+    ImdsSupport: Optional[AttributeValue]
 
 
 class UserBucket(TypedDict, total=False):
@@ -13847,6 +15038,7 @@ class ModifyInstancePlacementRequest(ServiceRequest):
     Tenancy: Optional[HostTenancy]
     PartitionNumber: Optional[Integer]
     HostResourceGroupArn: Optional[String]
+    GroupId: Optional[PlacementGroupId]
 
 
 class ModifyInstancePlacementResult(TypedDict, total=False):
@@ -13925,6 +15117,18 @@ class ModifyLaunchTemplateResult(TypedDict, total=False):
     LaunchTemplate: Optional[LaunchTemplate]
 
 
+class ModifyLocalGatewayRouteRequest(ServiceRequest):
+    DestinationCidrBlock: String
+    LocalGatewayRouteTableId: LocalGatewayRoutetableId
+    LocalGatewayVirtualInterfaceGroupId: Optional[LocalGatewayVirtualInterfaceGroupId]
+    NetworkInterfaceId: Optional[NetworkInterfaceId]
+    DryRun: Optional[Boolean]
+
+
+class ModifyLocalGatewayRouteResult(TypedDict, total=False):
+    Route: Optional[LocalGatewayRoute]
+
+
 class RemovePrefixListEntry(TypedDict, total=False):
     Cidr: String
 
@@ -13958,6 +15162,7 @@ class ModifyNetworkInterfaceAttributeRequest(ServiceRequest):
     Groups: Optional[SecurityGroupIdStringList]
     NetworkInterfaceId: NetworkInterfaceId
     SourceDestCheck: Optional[AttributeBooleanValue]
+    EnaSrdSpecification: Optional[EnaSrdSpecification]
 
 
 class ModifyPrivateDnsNameOptionsRequest(ServiceRequest):
@@ -14124,6 +15329,7 @@ class ModifyTransitGatewayOptions(TypedDict, total=False):
     AssociationDefaultRouteTableId: Optional[TransitGatewayRouteTableId]
     DefaultRouteTablePropagation: Optional[DefaultRouteTablePropagationValue]
     PropagationDefaultRouteTableId: Optional[TransitGatewayRouteTableId]
+    AmazonSideAsn: Optional[Long]
 
 
 class ModifyTransitGatewayPrefixListReferenceRequest(ServiceRequest):
@@ -14167,6 +15373,133 @@ class ModifyTransitGatewayVpcAttachmentResult(TypedDict, total=False):
     TransitGatewayVpcAttachment: Optional[TransitGatewayVpcAttachment]
 
 
+class ModifyVerifiedAccessEndpointEniOptions(TypedDict, total=False):
+    Protocol: Optional[VerifiedAccessEndpointProtocol]
+    Port: Optional[VerifiedAccessEndpointPortNumber]
+
+
+ModifyVerifiedAccessEndpointSubnetIdList = List[SubnetId]
+
+
+class ModifyVerifiedAccessEndpointLoadBalancerOptions(TypedDict, total=False):
+    SubnetIds: Optional[ModifyVerifiedAccessEndpointSubnetIdList]
+    Protocol: Optional[VerifiedAccessEndpointProtocol]
+    Port: Optional[VerifiedAccessEndpointPortNumber]
+
+
+class ModifyVerifiedAccessEndpointPolicyRequest(ServiceRequest):
+    VerifiedAccessEndpointId: VerifiedAccessEndpointId
+    PolicyEnabled: Boolean
+    PolicyDocument: Optional[String]
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class ModifyVerifiedAccessEndpointPolicyResult(TypedDict, total=False):
+    PolicyEnabled: Optional[Boolean]
+    PolicyDocument: Optional[String]
+
+
+class ModifyVerifiedAccessEndpointRequest(ServiceRequest):
+    VerifiedAccessEndpointId: VerifiedAccessEndpointId
+    VerifiedAccessGroupId: Optional[VerifiedAccessGroupId]
+    LoadBalancerOptions: Optional[ModifyVerifiedAccessEndpointLoadBalancerOptions]
+    NetworkInterfaceOptions: Optional[ModifyVerifiedAccessEndpointEniOptions]
+    Description: Optional[String]
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class ModifyVerifiedAccessEndpointResult(TypedDict, total=False):
+    VerifiedAccessEndpoint: Optional[VerifiedAccessEndpoint]
+
+
+class ModifyVerifiedAccessGroupPolicyRequest(ServiceRequest):
+    VerifiedAccessGroupId: VerifiedAccessGroupId
+    PolicyEnabled: Boolean
+    PolicyDocument: Optional[String]
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class ModifyVerifiedAccessGroupPolicyResult(TypedDict, total=False):
+    PolicyEnabled: Optional[Boolean]
+    PolicyDocument: Optional[String]
+
+
+class ModifyVerifiedAccessGroupRequest(ServiceRequest):
+    VerifiedAccessGroupId: VerifiedAccessGroupId
+    VerifiedAccessInstanceId: Optional[VerifiedAccessInstanceId]
+    Description: Optional[String]
+    ClientToken: Optional[String]
+    DryRun: Optional[Boolean]
+
+
+class ModifyVerifiedAccessGroupResult(TypedDict, total=False):
+    VerifiedAccessGroup: Optional[VerifiedAccessGroup]
+
+
+class VerifiedAccessLogKinesisDataFirehoseDestinationOptions(TypedDict, total=False):
+    Enabled: Boolean
+    DeliveryStream: Optional[String]
+
+
+class VerifiedAccessLogCloudWatchLogsDestinationOptions(TypedDict, total=False):
+    Enabled: Boolean
+    LogGroup: Optional[String]
+
+
+class VerifiedAccessLogS3DestinationOptions(TypedDict, total=False):
+    Enabled: Boolean
+    BucketName: Optional[String]
+    Prefix: Optional[String]
+    BucketOwner: Optional[String]
+
+
+class VerifiedAccessLogOptions(TypedDict, total=False):
+    S3: Optional[VerifiedAccessLogS3DestinationOptions]
+    CloudWatchLogs: Optional[VerifiedAccessLogCloudWatchLogsDestinationOptions]
+    KinesisDataFirehose: Optional[VerifiedAccessLogKinesisDataFirehoseDestinationOptions]
+
+
+class ModifyVerifiedAccessInstanceLoggingConfigurationRequest(ServiceRequest):
+    VerifiedAccessInstanceId: VerifiedAccessInstanceId
+    AccessLogs: VerifiedAccessLogOptions
+    DryRun: Optional[Boolean]
+    ClientToken: Optional[String]
+
+
+class ModifyVerifiedAccessInstanceLoggingConfigurationResult(TypedDict, total=False):
+    LoggingConfiguration: Optional[VerifiedAccessInstanceLoggingConfiguration]
+
+
+class ModifyVerifiedAccessInstanceRequest(ServiceRequest):
+    VerifiedAccessInstanceId: VerifiedAccessInstanceId
+    Description: Optional[String]
+    DryRun: Optional[Boolean]
+    ClientToken: Optional[String]
+
+
+class ModifyVerifiedAccessInstanceResult(TypedDict, total=False):
+    VerifiedAccessInstance: Optional[VerifiedAccessInstance]
+
+
+class ModifyVerifiedAccessTrustProviderOidcOptions(TypedDict, total=False):
+    Scope: Optional[String]
+
+
+class ModifyVerifiedAccessTrustProviderRequest(ServiceRequest):
+    VerifiedAccessTrustProviderId: VerifiedAccessTrustProviderId
+    OidcOptions: Optional[ModifyVerifiedAccessTrustProviderOidcOptions]
+    Description: Optional[String]
+    DryRun: Optional[Boolean]
+    ClientToken: Optional[String]
+
+
+class ModifyVerifiedAccessTrustProviderResult(TypedDict, total=False):
+    VerifiedAccessTrustProvider: Optional[VerifiedAccessTrustProvider]
+
+
 class ModifyVolumeAttributeRequest(ServiceRequest):
     AutoEnableIO: Optional[AttributeBooleanValue]
     VolumeId: VolumeId
@@ -14191,6 +15524,7 @@ class ModifyVpcAttributeRequest(ServiceRequest):
     EnableDnsHostnames: Optional[AttributeBooleanValue]
     EnableDnsSupport: Optional[AttributeBooleanValue]
     VpcId: VpcId
+    EnableNetworkAddressUsageMetrics: Optional[AttributeBooleanValue]
 
 
 class ModifyVpcEndpointConnectionNotificationRequest(ServiceRequest):
@@ -14260,6 +15594,7 @@ class ModifyVpcEndpointServicePermissionsRequest(ServiceRequest):
 
 
 class ModifyVpcEndpointServicePermissionsResult(TypedDict, total=False):
+    AddedPrincipals: Optional[AddedPrincipalSet]
     ReturnValue: Optional[Boolean]
 
 
@@ -14351,6 +15686,7 @@ class ModifyVpnTunnelOptionsSpecification(TypedDict, total=False):
     Phase2DHGroupNumbers: Optional[Phase2DHGroupNumbersRequestList]
     IKEVersions: Optional[IKEVersionsRequestList]
     StartupAction: Optional[String]
+    LogOptions: Optional[VpnTunnelLogOptionsSpecification]
 
 
 class ModifyVpnTunnelOptionsRequest(ServiceRequest):
@@ -14525,6 +15861,7 @@ class RegisterImageRequest(ServiceRequest):
     BootMode: Optional[BootModeValues]
     TpmSupport: Optional[TpmSupportValues]
     UefiData: Optional[StringType]
+    ImdsSupport: Optional[ImdsSupportValues]
 
 
 class RegisterImageResult(TypedDict, total=False):
@@ -15181,6 +16518,7 @@ class StartNetworkInsightsAccessScopeAnalysisResult(TypedDict, total=False):
 
 class StartNetworkInsightsAnalysisRequest(ServiceRequest):
     NetworkInsightsPathId: NetworkInsightsPathId
+    AdditionalAccounts: Optional[ValueStringList]
     FilterInArns: Optional[ArnList]
     DryRun: Optional[Boolean]
     TagSpecifications: Optional[TagSpecificationList]
@@ -15307,6 +16645,16 @@ class Ec2Api:
     service = "ec2"
     version = "2016-11-15"
 
+    @handler("AcceptAddressTransfer")
+    def accept_address_transfer(
+        self,
+        context: RequestContext,
+        address: String,
+        tag_specifications: TagSpecificationList = None,
+        dry_run: Boolean = None,
+    ) -> AcceptAddressTransferResult:
+        raise NotImplementedError
+
     @handler("AcceptReservedInstancesExchangeQuote")
     def accept_reserved_instances_exchange_quote(
         self,
@@ -15361,7 +16709,7 @@ class Ec2Api:
         self,
         context: RequestContext,
         dry_run: Boolean = None,
-        vpc_peering_connection_id: VpcPeeringConnectionId = None,
+        vpc_peering_connection_id: VpcPeeringConnectionIdWithResolver = None,
     ) -> AcceptVpcPeeringConnectionResult:
         raise NotImplementedError
 
@@ -15544,6 +16892,16 @@ class Ec2Api:
     ) -> AssociateTransitGatewayMulticastDomainResult:
         raise NotImplementedError
 
+    @handler("AssociateTransitGatewayPolicyTable")
+    def associate_transit_gateway_policy_table(
+        self,
+        context: RequestContext,
+        transit_gateway_policy_table_id: TransitGatewayPolicyTableId,
+        transit_gateway_attachment_id: TransitGatewayAttachmentId,
+        dry_run: Boolean = None,
+    ) -> AssociateTransitGatewayPolicyTableResult:
+        raise NotImplementedError
+
     @handler("AssociateTransitGatewayRouteTable")
     def associate_transit_gateway_route_table(
         self,
@@ -15614,7 +16972,19 @@ class Ec2Api:
         network_interface_id: NetworkInterfaceId,
         dry_run: Boolean = None,
         network_card_index: Integer = None,
+        ena_srd_specification: EnaSrdSpecification = None,
     ) -> AttachNetworkInterfaceResult:
+        raise NotImplementedError
+
+    @handler("AttachVerifiedAccessTrustProvider")
+    def attach_verified_access_trust_provider(
+        self,
+        context: RequestContext,
+        verified_access_instance_id: VerifiedAccessInstanceId,
+        verified_access_trust_provider_id: VerifiedAccessTrustProviderId,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> AttachVerifiedAccessTrustProviderResult:
         raise NotImplementedError
 
     @handler("AttachVolume")
@@ -15735,6 +17105,12 @@ class Ec2Api:
     def cancel_export_task(self, context: RequestContext, export_task_id: ExportVmTaskId) -> None:
         raise NotImplementedError
 
+    @handler("CancelImageLaunchPermission")
+    def cancel_image_launch_permission(
+        self, context: RequestContext, image_id: ImageId, dry_run: Boolean = None
+    ) -> CancelImageLaunchPermissionResult:
+        raise NotImplementedError
+
     @handler("CancelImportTask")
     def cancel_import_task(
         self,
@@ -15806,6 +17182,7 @@ class Ec2Api:
         kms_key_id: KmsKeyId = None,
         destination_outpost_arn: String = None,
         dry_run: Boolean = None,
+        copy_image_tags: Boolean = None,
     ) -> CopyImageResult:
         raise NotImplementedError
 
@@ -15914,6 +17291,26 @@ class Ec2Api:
     ) -> CreateClientVpnRouteResult:
         raise NotImplementedError
 
+    @handler("CreateCoipCidr")
+    def create_coip_cidr(
+        self,
+        context: RequestContext,
+        cidr: String,
+        coip_pool_id: Ipv4PoolCoipId,
+        dry_run: Boolean = None,
+    ) -> CreateCoipCidrResult:
+        raise NotImplementedError
+
+    @handler("CreateCoipPool")
+    def create_coip_pool(
+        self,
+        context: RequestContext,
+        local_gateway_route_table_id: LocalGatewayRoutetableId,
+        tag_specifications: TagSpecificationList = None,
+        dry_run: Boolean = None,
+    ) -> CreateCoipPoolResult:
+        raise NotImplementedError
+
     @handler("CreateCustomerGateway", expand=False)
     def create_customer_gateway(
         self, context: RequestContext, request: CreateCustomerGatewayRequest
@@ -15969,11 +17366,12 @@ class Ec2Api:
         context: RequestContext,
         resource_ids: FlowLogResourceIds,
         resource_type: FlowLogsResourceType,
-        traffic_type: TrafficType,
         dry_run: Boolean = None,
         client_token: String = None,
         deliver_logs_permission_arn: String = None,
+        deliver_cross_account_role: String = None,
         log_group_name: String = None,
+        traffic_type: TrafficType = None,
         log_destination_type: LogDestinationType = None,
         log_destination: String = None,
         log_format: String = None,
@@ -16135,9 +17533,32 @@ class Ec2Api:
         context: RequestContext,
         destination_cidr_block: String,
         local_gateway_route_table_id: LocalGatewayRoutetableId,
-        local_gateway_virtual_interface_group_id: LocalGatewayVirtualInterfaceGroupId,
+        local_gateway_virtual_interface_group_id: LocalGatewayVirtualInterfaceGroupId = None,
         dry_run: Boolean = None,
+        network_interface_id: NetworkInterfaceId = None,
     ) -> CreateLocalGatewayRouteResult:
+        raise NotImplementedError
+
+    @handler("CreateLocalGatewayRouteTable")
+    def create_local_gateway_route_table(
+        self,
+        context: RequestContext,
+        local_gateway_id: LocalGatewayId,
+        mode: LocalGatewayRouteTableMode = None,
+        tag_specifications: TagSpecificationList = None,
+        dry_run: Boolean = None,
+    ) -> CreateLocalGatewayRouteTableResult:
+        raise NotImplementedError
+
+    @handler("CreateLocalGatewayRouteTableVirtualInterfaceGroupAssociation")
+    def create_local_gateway_route_table_virtual_interface_group_association(
+        self,
+        context: RequestContext,
+        local_gateway_route_table_id: LocalGatewayRoutetableId,
+        local_gateway_virtual_interface_group_id: LocalGatewayVirtualInterfaceGroupId,
+        tag_specifications: TagSpecificationList = None,
+        dry_run: Boolean = None,
+    ) -> CreateLocalGatewayRouteTableVirtualInterfaceGroupAssociationResult:
         raise NotImplementedError
 
     @handler("CreateLocalGatewayRouteTableVpcAssociation")
@@ -16175,6 +17596,7 @@ class Ec2Api:
         dry_run: Boolean = None,
         tag_specifications: TagSpecificationList = None,
         connectivity_type: ConnectivityType = None,
+        private_ip_address: String = None,
     ) -> CreateNatGatewayResult:
         raise NotImplementedError
 
@@ -16299,6 +17721,8 @@ class Ec2Api:
         client_token: String = None,
         dry_run: Boolean = None,
         tag_specifications: TagSpecificationList = None,
+        image_id: ImageId = None,
+        delete_replaced_root_volume: Boolean = None,
     ) -> CreateReplaceRootVolumeTaskResult:
         raise NotImplementedError
 
@@ -16571,9 +17995,20 @@ class Ec2Api:
         peer_transit_gateway_id: TransitAssociationGatewayId,
         peer_account_id: String,
         peer_region: String,
+        options: CreateTransitGatewayPeeringAttachmentRequestOptions = None,
         tag_specifications: TagSpecificationList = None,
         dry_run: Boolean = None,
     ) -> CreateTransitGatewayPeeringAttachmentResult:
+        raise NotImplementedError
+
+    @handler("CreateTransitGatewayPolicyTable")
+    def create_transit_gateway_policy_table(
+        self,
+        context: RequestContext,
+        transit_gateway_id: TransitGatewayId,
+        tag_specifications: TagSpecificationList = None,
+        dry_run: Boolean = None,
+    ) -> CreateTransitGatewayPolicyTableResult:
         raise NotImplementedError
 
     @handler("CreateTransitGatewayPrefixListReference")
@@ -16610,6 +18045,17 @@ class Ec2Api:
     ) -> CreateTransitGatewayRouteTableResult:
         raise NotImplementedError
 
+    @handler("CreateTransitGatewayRouteTableAnnouncement")
+    def create_transit_gateway_route_table_announcement(
+        self,
+        context: RequestContext,
+        transit_gateway_route_table_id: TransitGatewayRouteTableId,
+        peering_attachment_id: TransitGatewayAttachmentId,
+        tag_specifications: TagSpecificationList = None,
+        dry_run: Boolean = None,
+    ) -> CreateTransitGatewayRouteTableAnnouncementResult:
+        raise NotImplementedError
+
     @handler("CreateTransitGatewayVpcAttachment")
     def create_transit_gateway_vpc_attachment(
         self,
@@ -16621,6 +18067,68 @@ class Ec2Api:
         tag_specifications: TagSpecificationList = None,
         dry_run: Boolean = None,
     ) -> CreateTransitGatewayVpcAttachmentResult:
+        raise NotImplementedError
+
+    @handler("CreateVerifiedAccessEndpoint")
+    def create_verified_access_endpoint(
+        self,
+        context: RequestContext,
+        verified_access_group_id: VerifiedAccessGroupId,
+        endpoint_type: VerifiedAccessEndpointType,
+        attachment_type: VerifiedAccessEndpointAttachmentType,
+        domain_certificate_arn: CertificateArn,
+        application_domain: String,
+        endpoint_domain_prefix: String,
+        security_group_ids: SecurityGroupIdList = None,
+        load_balancer_options: CreateVerifiedAccessEndpointLoadBalancerOptions = None,
+        network_interface_options: CreateVerifiedAccessEndpointEniOptions = None,
+        description: String = None,
+        policy_document: String = None,
+        tag_specifications: TagSpecificationList = None,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> CreateVerifiedAccessEndpointResult:
+        raise NotImplementedError
+
+    @handler("CreateVerifiedAccessGroup")
+    def create_verified_access_group(
+        self,
+        context: RequestContext,
+        verified_access_instance_id: VerifiedAccessInstanceId,
+        description: String = None,
+        policy_document: String = None,
+        tag_specifications: TagSpecificationList = None,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> CreateVerifiedAccessGroupResult:
+        raise NotImplementedError
+
+    @handler("CreateVerifiedAccessInstance")
+    def create_verified_access_instance(
+        self,
+        context: RequestContext,
+        description: String = None,
+        tag_specifications: TagSpecificationList = None,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> CreateVerifiedAccessInstanceResult:
+        raise NotImplementedError
+
+    @handler("CreateVerifiedAccessTrustProvider")
+    def create_verified_access_trust_provider(
+        self,
+        context: RequestContext,
+        trust_provider_type: TrustProviderType,
+        policy_reference_name: String,
+        user_trust_provider_type: UserTrustProviderType = None,
+        device_trust_provider_type: DeviceTrustProviderType = None,
+        oidc_options: CreateVerifiedAccessTrustProviderOidcOptions = None,
+        device_options: CreateVerifiedAccessTrustProviderDeviceOptions = None,
+        description: String = None,
+        tag_specifications: TagSpecificationList = None,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> CreateVerifiedAccessTrustProviderResult:
         raise NotImplementedError
 
     @handler("CreateVolume")
@@ -16770,6 +18278,22 @@ class Ec2Api:
     ) -> DeleteClientVpnRouteResult:
         raise NotImplementedError
 
+    @handler("DeleteCoipCidr")
+    def delete_coip_cidr(
+        self,
+        context: RequestContext,
+        cidr: String,
+        coip_pool_id: Ipv4PoolCoipId,
+        dry_run: Boolean = None,
+    ) -> DeleteCoipCidrResult:
+        raise NotImplementedError
+
+    @handler("DeleteCoipPool")
+    def delete_coip_pool(
+        self, context: RequestContext, coip_pool_id: Ipv4PoolCoipId, dry_run: Boolean = None
+    ) -> DeleteCoipPoolResult:
+        raise NotImplementedError
+
     @handler("DeleteCustomerGateway")
     def delete_customer_gateway(
         self,
@@ -16896,6 +18420,24 @@ class Ec2Api:
         local_gateway_route_table_id: LocalGatewayRoutetableId,
         dry_run: Boolean = None,
     ) -> DeleteLocalGatewayRouteResult:
+        raise NotImplementedError
+
+    @handler("DeleteLocalGatewayRouteTable")
+    def delete_local_gateway_route_table(
+        self,
+        context: RequestContext,
+        local_gateway_route_table_id: LocalGatewayRoutetableId,
+        dry_run: Boolean = None,
+    ) -> DeleteLocalGatewayRouteTableResult:
+        raise NotImplementedError
+
+    @handler("DeleteLocalGatewayRouteTableVirtualInterfaceGroupAssociation")
+    def delete_local_gateway_route_table_virtual_interface_group_association(
+        self,
+        context: RequestContext,
+        local_gateway_route_table_virtual_interface_group_association_id: LocalGatewayRouteTableVirtualInterfaceGroupAssociationId,
+        dry_run: Boolean = None,
+    ) -> DeleteLocalGatewayRouteTableVirtualInterfaceGroupAssociationResult:
         raise NotImplementedError
 
     @handler("DeleteLocalGatewayRouteTableVpcAssociation")
@@ -17155,6 +18697,15 @@ class Ec2Api:
     ) -> DeleteTransitGatewayPeeringAttachmentResult:
         raise NotImplementedError
 
+    @handler("DeleteTransitGatewayPolicyTable")
+    def delete_transit_gateway_policy_table(
+        self,
+        context: RequestContext,
+        transit_gateway_policy_table_id: TransitGatewayPolicyTableId,
+        dry_run: Boolean = None,
+    ) -> DeleteTransitGatewayPolicyTableResult:
+        raise NotImplementedError
+
     @handler("DeleteTransitGatewayPrefixListReference")
     def delete_transit_gateway_prefix_list_reference(
         self,
@@ -17184,6 +18735,15 @@ class Ec2Api:
     ) -> DeleteTransitGatewayRouteTableResult:
         raise NotImplementedError
 
+    @handler("DeleteTransitGatewayRouteTableAnnouncement")
+    def delete_transit_gateway_route_table_announcement(
+        self,
+        context: RequestContext,
+        transit_gateway_route_table_announcement_id: TransitGatewayRouteTableAnnouncementId,
+        dry_run: Boolean = None,
+    ) -> DeleteTransitGatewayRouteTableAnnouncementResult:
+        raise NotImplementedError
+
     @handler("DeleteTransitGatewayVpcAttachment")
     def delete_transit_gateway_vpc_attachment(
         self,
@@ -17191,6 +18751,46 @@ class Ec2Api:
         transit_gateway_attachment_id: TransitGatewayAttachmentId,
         dry_run: Boolean = None,
     ) -> DeleteTransitGatewayVpcAttachmentResult:
+        raise NotImplementedError
+
+    @handler("DeleteVerifiedAccessEndpoint")
+    def delete_verified_access_endpoint(
+        self,
+        context: RequestContext,
+        verified_access_endpoint_id: VerifiedAccessEndpointId,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> DeleteVerifiedAccessEndpointResult:
+        raise NotImplementedError
+
+    @handler("DeleteVerifiedAccessGroup")
+    def delete_verified_access_group(
+        self,
+        context: RequestContext,
+        verified_access_group_id: VerifiedAccessGroupId,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> DeleteVerifiedAccessGroupResult:
+        raise NotImplementedError
+
+    @handler("DeleteVerifiedAccessInstance")
+    def delete_verified_access_instance(
+        self,
+        context: RequestContext,
+        verified_access_instance_id: VerifiedAccessInstanceId,
+        dry_run: Boolean = None,
+        client_token: String = None,
+    ) -> DeleteVerifiedAccessInstanceResult:
+        raise NotImplementedError
+
+    @handler("DeleteVerifiedAccessTrustProvider")
+    def delete_verified_access_trust_provider(
+        self,
+        context: RequestContext,
+        verified_access_trust_provider_id: VerifiedAccessTrustProviderId,
+        dry_run: Boolean = None,
+        client_token: String = None,
+    ) -> DeleteVerifiedAccessTrustProviderResult:
         raise NotImplementedError
 
     @handler("DeleteVolume")
@@ -17325,6 +18925,17 @@ class Ec2Api:
     ) -> DescribeAccountAttributesResult:
         raise NotImplementedError
 
+    @handler("DescribeAddressTransfers")
+    def describe_address_transfers(
+        self,
+        context: RequestContext,
+        allocation_ids: AllocationIdList = None,
+        next_token: String = None,
+        max_results: DescribeAddressTransfersMaxResults = None,
+        dry_run: Boolean = None,
+    ) -> DescribeAddressTransfersResult:
+        raise NotImplementedError
+
     @handler("DescribeAddresses")
     def describe_addresses(
         self,
@@ -17364,6 +18975,17 @@ class Ec2Api:
         all_availability_zones: Boolean = None,
         dry_run: Boolean = None,
     ) -> DescribeAvailabilityZonesResult:
+        raise NotImplementedError
+
+    @handler("DescribeAwsNetworkPerformanceMetricSubscriptions")
+    def describe_aws_network_performance_metric_subscriptions(
+        self,
+        context: RequestContext,
+        max_results: MaxResultsParam = None,
+        next_token: String = None,
+        filters: FilterList = None,
+        dry_run: Boolean = None,
+    ) -> DescribeAwsNetworkPerformanceMetricSubscriptionsResult:
         raise NotImplementedError
 
     @handler("DescribeBundleTasks")
@@ -17756,6 +19378,8 @@ class Ec2Api:
         owners: OwnerStringList = None,
         include_deprecated: Boolean = None,
         dry_run: Boolean = None,
+        max_results: Integer = None,
+        next_token: String = None,
     ) -> DescribeImagesResult:
         raise NotImplementedError
 
@@ -18619,6 +20243,30 @@ class Ec2Api:
     ) -> DescribeTransitGatewayPeeringAttachmentsResult:
         raise NotImplementedError
 
+    @handler("DescribeTransitGatewayPolicyTables")
+    def describe_transit_gateway_policy_tables(
+        self,
+        context: RequestContext,
+        transit_gateway_policy_table_ids: TransitGatewayPolicyTableIdStringList = None,
+        filters: FilterList = None,
+        max_results: TransitGatewayMaxResults = None,
+        next_token: String = None,
+        dry_run: Boolean = None,
+    ) -> DescribeTransitGatewayPolicyTablesResult:
+        raise NotImplementedError
+
+    @handler("DescribeTransitGatewayRouteTableAnnouncements")
+    def describe_transit_gateway_route_table_announcements(
+        self,
+        context: RequestContext,
+        transit_gateway_route_table_announcement_ids: TransitGatewayRouteTableAnnouncementIdStringList = None,
+        filters: FilterList = None,
+        max_results: TransitGatewayMaxResults = None,
+        next_token: String = None,
+        dry_run: Boolean = None,
+    ) -> DescribeTransitGatewayRouteTableAnnouncementsResult:
+        raise NotImplementedError
+
     @handler("DescribeTransitGatewayRouteTables")
     def describe_transit_gateway_route_tables(
         self,
@@ -18665,6 +20313,69 @@ class Ec2Api:
         next_token: String = None,
         max_results: DescribeTrunkInterfaceAssociationsMaxResults = None,
     ) -> DescribeTrunkInterfaceAssociationsResult:
+        raise NotImplementedError
+
+    @handler("DescribeVerifiedAccessEndpoints")
+    def describe_verified_access_endpoints(
+        self,
+        context: RequestContext,
+        verified_access_endpoint_ids: VerifiedAccessEndpointIdList = None,
+        verified_access_instance_id: VerifiedAccessInstanceId = None,
+        verified_access_group_id: VerifiedAccessGroupId = None,
+        max_results: DescribeVerifiedAccessEndpointsMaxResults = None,
+        next_token: NextToken = None,
+        filters: FilterList = None,
+        dry_run: Boolean = None,
+    ) -> DescribeVerifiedAccessEndpointsResult:
+        raise NotImplementedError
+
+    @handler("DescribeVerifiedAccessGroups")
+    def describe_verified_access_groups(
+        self,
+        context: RequestContext,
+        verified_access_group_ids: VerifiedAccessGroupIdList = None,
+        verified_access_instance_id: VerifiedAccessInstanceId = None,
+        max_results: DescribeVerifiedAccessGroupMaxResults = None,
+        next_token: NextToken = None,
+        filters: FilterList = None,
+        dry_run: Boolean = None,
+    ) -> DescribeVerifiedAccessGroupsResult:
+        raise NotImplementedError
+
+    @handler("DescribeVerifiedAccessInstanceLoggingConfigurations")
+    def describe_verified_access_instance_logging_configurations(
+        self,
+        context: RequestContext,
+        verified_access_instance_ids: VerifiedAccessInstanceIdList = None,
+        max_results: DescribeVerifiedAccessInstanceLoggingConfigurationsMaxResults = None,
+        next_token: NextToken = None,
+        filters: FilterList = None,
+        dry_run: Boolean = None,
+    ) -> DescribeVerifiedAccessInstanceLoggingConfigurationsResult:
+        raise NotImplementedError
+
+    @handler("DescribeVerifiedAccessInstances")
+    def describe_verified_access_instances(
+        self,
+        context: RequestContext,
+        verified_access_instance_ids: VerifiedAccessInstanceIdList = None,
+        max_results: DescribeVerifiedAccessInstancesMaxResults = None,
+        next_token: NextToken = None,
+        filters: FilterList = None,
+        dry_run: Boolean = None,
+    ) -> DescribeVerifiedAccessInstancesResult:
+        raise NotImplementedError
+
+    @handler("DescribeVerifiedAccessTrustProviders")
+    def describe_verified_access_trust_providers(
+        self,
+        context: RequestContext,
+        verified_access_trust_provider_ids: VerifiedAccessTrustProviderIdList = None,
+        max_results: DescribeVerifiedAccessTrustProvidersMaxResults = None,
+        next_token: NextToken = None,
+        filters: FilterList = None,
+        dry_run: Boolean = None,
+    ) -> DescribeVerifiedAccessTrustProvidersResult:
         raise NotImplementedError
 
     @handler("DescribeVolumeAttribute")
@@ -18888,14 +20599,25 @@ class Ec2Api:
     ) -> None:
         raise NotImplementedError
 
+    @handler("DetachVerifiedAccessTrustProvider")
+    def detach_verified_access_trust_provider(
+        self,
+        context: RequestContext,
+        verified_access_instance_id: VerifiedAccessInstanceId,
+        verified_access_trust_provider_id: VerifiedAccessTrustProviderId,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> DetachVerifiedAccessTrustProviderResult:
+        raise NotImplementedError
+
     @handler("DetachVolume")
     def detach_volume(
         self,
         context: RequestContext,
-        volume_id: VolumeId,
+        volume_id: VolumeIdWithResolver,
         device: String = None,
         force: Boolean = None,
-        instance_id: InstanceId = None,
+        instance_id: InstanceIdForResolver = None,
         dry_run: Boolean = None,
     ) -> VolumeAttachment:
         raise NotImplementedError
@@ -18908,6 +20630,24 @@ class Ec2Api:
         vpn_gateway_id: VpnGatewayId,
         dry_run: Boolean = None,
     ) -> None:
+        raise NotImplementedError
+
+    @handler("DisableAddressTransfer")
+    def disable_address_transfer(
+        self, context: RequestContext, allocation_id: AllocationId, dry_run: Boolean = None
+    ) -> DisableAddressTransferResult:
+        raise NotImplementedError
+
+    @handler("DisableAwsNetworkPerformanceMetricSubscription")
+    def disable_aws_network_performance_metric_subscription(
+        self,
+        context: RequestContext,
+        source: String = None,
+        destination: String = None,
+        metric: MetricType = None,
+        statistic: StatisticType = None,
+        dry_run: Boolean = None,
+    ) -> DisableAwsNetworkPerformanceMetricSubscriptionResult:
         raise NotImplementedError
 
     @handler("DisableEbsEncryptionByDefault")
@@ -18959,8 +20699,9 @@ class Ec2Api:
         self,
         context: RequestContext,
         transit_gateway_route_table_id: TransitGatewayRouteTableId,
-        transit_gateway_attachment_id: TransitGatewayAttachmentId,
+        transit_gateway_attachment_id: TransitGatewayAttachmentId = None,
         dry_run: Boolean = None,
+        transit_gateway_route_table_announcement_id: TransitGatewayRouteTableAnnouncementId = None,
     ) -> DisableTransitGatewayRouteTablePropagationResult:
         raise NotImplementedError
 
@@ -19058,6 +20799,16 @@ class Ec2Api:
     ) -> DisassociateTransitGatewayMulticastDomainResult:
         raise NotImplementedError
 
+    @handler("DisassociateTransitGatewayPolicyTable")
+    def disassociate_transit_gateway_policy_table(
+        self,
+        context: RequestContext,
+        transit_gateway_policy_table_id: TransitGatewayPolicyTableId,
+        transit_gateway_attachment_id: TransitGatewayAttachmentId,
+        dry_run: Boolean = None,
+    ) -> DisassociateTransitGatewayPolicyTableResult:
+        raise NotImplementedError
+
     @handler("DisassociateTransitGatewayRouteTable")
     def disassociate_transit_gateway_route_table(
         self,
@@ -19082,6 +20833,28 @@ class Ec2Api:
     def disassociate_vpc_cidr_block(
         self, context: RequestContext, association_id: VpcCidrAssociationId
     ) -> DisassociateVpcCidrBlockResult:
+        raise NotImplementedError
+
+    @handler("EnableAddressTransfer")
+    def enable_address_transfer(
+        self,
+        context: RequestContext,
+        allocation_id: AllocationId,
+        transfer_account_id: String,
+        dry_run: Boolean = None,
+    ) -> EnableAddressTransferResult:
+        raise NotImplementedError
+
+    @handler("EnableAwsNetworkPerformanceMetricSubscription")
+    def enable_aws_network_performance_metric_subscription(
+        self,
+        context: RequestContext,
+        source: String = None,
+        destination: String = None,
+        metric: MetricType = None,
+        statistic: StatisticType = None,
+        dry_run: Boolean = None,
+    ) -> EnableAwsNetworkPerformanceMetricSubscriptionResult:
         raise NotImplementedError
 
     @handler("EnableEbsEncryptionByDefault")
@@ -19129,6 +20902,12 @@ class Ec2Api:
     ) -> EnableIpamOrganizationAdminAccountResult:
         raise NotImplementedError
 
+    @handler("EnableReachabilityAnalyzerOrganizationSharing")
+    def enable_reachability_analyzer_organization_sharing(
+        self, context: RequestContext, dry_run: Boolean = None
+    ) -> EnableReachabilityAnalyzerOrganizationSharingResult:
+        raise NotImplementedError
+
     @handler("EnableSerialConsoleAccess")
     def enable_serial_console_access(
         self, context: RequestContext, dry_run: Boolean = None
@@ -19140,8 +20919,9 @@ class Ec2Api:
         self,
         context: RequestContext,
         transit_gateway_route_table_id: TransitGatewayRouteTableId,
-        transit_gateway_attachment_id: TransitGatewayAttachmentId,
+        transit_gateway_attachment_id: TransitGatewayAttachmentId = None,
         dry_run: Boolean = None,
+        transit_gateway_route_table_announcement_id: TransitGatewayRouteTableAnnouncementId = None,
     ) -> EnableTransitGatewayRouteTablePropagationResult:
         raise NotImplementedError
 
@@ -19232,6 +21012,19 @@ class Ec2Api:
         max_results: Ipv6PoolMaxResults = None,
         dry_run: Boolean = None,
     ) -> GetAssociatedIpv6PoolCidrsResult:
+        raise NotImplementedError
+
+    @handler("GetAwsNetworkPerformanceData")
+    def get_aws_network_performance_data(
+        self,
+        context: RequestContext,
+        data_queries: DataQueries = None,
+        start_time: MillisecondDateTime = None,
+        end_time: MillisecondDateTime = None,
+        max_results: Integer = None,
+        next_token: String = None,
+        dry_run: Boolean = None,
+    ) -> GetAwsNetworkPerformanceDataResult:
         raise NotImplementedError
 
     @handler("GetCapacityReservationUsage")
@@ -19525,6 +21318,30 @@ class Ec2Api:
     ) -> GetTransitGatewayMulticastDomainAssociationsResult:
         raise NotImplementedError
 
+    @handler("GetTransitGatewayPolicyTableAssociations")
+    def get_transit_gateway_policy_table_associations(
+        self,
+        context: RequestContext,
+        transit_gateway_policy_table_id: TransitGatewayPolicyTableId,
+        filters: FilterList = None,
+        max_results: TransitGatewayMaxResults = None,
+        next_token: String = None,
+        dry_run: Boolean = None,
+    ) -> GetTransitGatewayPolicyTableAssociationsResult:
+        raise NotImplementedError
+
+    @handler("GetTransitGatewayPolicyTableEntries")
+    def get_transit_gateway_policy_table_entries(
+        self,
+        context: RequestContext,
+        transit_gateway_policy_table_id: TransitGatewayPolicyTableId,
+        filters: FilterList = None,
+        max_results: TransitGatewayMaxResults = None,
+        next_token: String = None,
+        dry_run: Boolean = None,
+    ) -> GetTransitGatewayPolicyTableEntriesResult:
+        raise NotImplementedError
+
     @handler("GetTransitGatewayPrefixListReferences")
     def get_transit_gateway_prefix_list_references(
         self,
@@ -19559,6 +21376,24 @@ class Ec2Api:
         next_token: String = None,
         dry_run: Boolean = None,
     ) -> GetTransitGatewayRouteTablePropagationsResult:
+        raise NotImplementedError
+
+    @handler("GetVerifiedAccessEndpointPolicy")
+    def get_verified_access_endpoint_policy(
+        self,
+        context: RequestContext,
+        verified_access_endpoint_id: VerifiedAccessEndpointId,
+        dry_run: Boolean = None,
+    ) -> GetVerifiedAccessEndpointPolicyResult:
+        raise NotImplementedError
+
+    @handler("GetVerifiedAccessGroupPolicy")
+    def get_verified_access_group_policy(
+        self,
+        context: RequestContext,
+        verified_access_group_id: VerifiedAccessGroupId,
+        dry_run: Boolean = None,
+    ) -> GetVerifiedAccessGroupPolicyResult:
         raise NotImplementedError
 
     @handler("GetVpnConnectionDeviceSampleConfiguration")
@@ -19943,6 +21778,7 @@ class Ec2Api:
         tenancy: HostTenancy = None,
         partition_number: Integer = None,
         host_resource_group_arn: String = None,
+        group_id: PlacementGroupId = None,
     ) -> ModifyInstancePlacementResult:
         raise NotImplementedError
 
@@ -20011,6 +21847,18 @@ class Ec2Api:
     ) -> ModifyLaunchTemplateResult:
         raise NotImplementedError
 
+    @handler("ModifyLocalGatewayRoute")
+    def modify_local_gateway_route(
+        self,
+        context: RequestContext,
+        destination_cidr_block: String,
+        local_gateway_route_table_id: LocalGatewayRoutetableId,
+        local_gateway_virtual_interface_group_id: LocalGatewayVirtualInterfaceGroupId = None,
+        network_interface_id: NetworkInterfaceId = None,
+        dry_run: Boolean = None,
+    ) -> ModifyLocalGatewayRouteResult:
+        raise NotImplementedError
+
     @handler("ModifyManagedPrefixList")
     def modify_managed_prefix_list(
         self,
@@ -20035,6 +21883,7 @@ class Ec2Api:
         dry_run: Boolean = None,
         groups: SecurityGroupIdStringList = None,
         source_dest_check: AttributeBooleanValue = None,
+        ena_srd_specification: EnaSrdSpecification = None,
     ) -> None:
         raise NotImplementedError
 
@@ -20199,6 +22048,90 @@ class Ec2Api:
     ) -> ModifyTransitGatewayVpcAttachmentResult:
         raise NotImplementedError
 
+    @handler("ModifyVerifiedAccessEndpoint")
+    def modify_verified_access_endpoint(
+        self,
+        context: RequestContext,
+        verified_access_endpoint_id: VerifiedAccessEndpointId,
+        verified_access_group_id: VerifiedAccessGroupId = None,
+        load_balancer_options: ModifyVerifiedAccessEndpointLoadBalancerOptions = None,
+        network_interface_options: ModifyVerifiedAccessEndpointEniOptions = None,
+        description: String = None,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> ModifyVerifiedAccessEndpointResult:
+        raise NotImplementedError
+
+    @handler("ModifyVerifiedAccessEndpointPolicy")
+    def modify_verified_access_endpoint_policy(
+        self,
+        context: RequestContext,
+        verified_access_endpoint_id: VerifiedAccessEndpointId,
+        policy_enabled: Boolean,
+        policy_document: String = None,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> ModifyVerifiedAccessEndpointPolicyResult:
+        raise NotImplementedError
+
+    @handler("ModifyVerifiedAccessGroup")
+    def modify_verified_access_group(
+        self,
+        context: RequestContext,
+        verified_access_group_id: VerifiedAccessGroupId,
+        verified_access_instance_id: VerifiedAccessInstanceId = None,
+        description: String = None,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> ModifyVerifiedAccessGroupResult:
+        raise NotImplementedError
+
+    @handler("ModifyVerifiedAccessGroupPolicy")
+    def modify_verified_access_group_policy(
+        self,
+        context: RequestContext,
+        verified_access_group_id: VerifiedAccessGroupId,
+        policy_enabled: Boolean,
+        policy_document: String = None,
+        client_token: String = None,
+        dry_run: Boolean = None,
+    ) -> ModifyVerifiedAccessGroupPolicyResult:
+        raise NotImplementedError
+
+    @handler("ModifyVerifiedAccessInstance")
+    def modify_verified_access_instance(
+        self,
+        context: RequestContext,
+        verified_access_instance_id: VerifiedAccessInstanceId,
+        description: String = None,
+        dry_run: Boolean = None,
+        client_token: String = None,
+    ) -> ModifyVerifiedAccessInstanceResult:
+        raise NotImplementedError
+
+    @handler("ModifyVerifiedAccessInstanceLoggingConfiguration")
+    def modify_verified_access_instance_logging_configuration(
+        self,
+        context: RequestContext,
+        verified_access_instance_id: VerifiedAccessInstanceId,
+        access_logs: VerifiedAccessLogOptions,
+        dry_run: Boolean = None,
+        client_token: String = None,
+    ) -> ModifyVerifiedAccessInstanceLoggingConfigurationResult:
+        raise NotImplementedError
+
+    @handler("ModifyVerifiedAccessTrustProvider")
+    def modify_verified_access_trust_provider(
+        self,
+        context: RequestContext,
+        verified_access_trust_provider_id: VerifiedAccessTrustProviderId,
+        oidc_options: ModifyVerifiedAccessTrustProviderOidcOptions = None,
+        description: String = None,
+        dry_run: Boolean = None,
+        client_token: String = None,
+    ) -> ModifyVerifiedAccessTrustProviderResult:
+        raise NotImplementedError
+
     @handler("ModifyVolume")
     def modify_volume(
         self,
@@ -20230,6 +22163,7 @@ class Ec2Api:
         vpc_id: VpcId,
         enable_dns_hostnames: AttributeBooleanValue = None,
         enable_dns_support: AttributeBooleanValue = None,
+        enable_network_address_usage_metrics: AttributeBooleanValue = None,
     ) -> None:
         raise NotImplementedError
 
@@ -20490,6 +22424,7 @@ class Ec2Api:
         boot_mode: BootModeValues = None,
         tpm_support: TpmSupportValues = None,
         uefi_data: StringType = None,
+        imds_support: ImdsSupportValues = None,
     ) -> RegisterImageResult:
         raise NotImplementedError
 
@@ -20991,6 +22926,7 @@ class Ec2Api:
         context: RequestContext,
         network_insights_path_id: NetworkInsightsPathId,
         client_token: String,
+        additional_accounts: ValueStringList = None,
         filter_in_arns: ArnList = None,
         dry_run: Boolean = None,
         tag_specifications: TagSpecificationList = None,

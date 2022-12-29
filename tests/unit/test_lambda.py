@@ -4,15 +4,19 @@ import os
 import re
 import time
 import unittest
-
-import mock
+from unittest import mock
 
 from localstack import config
 from localstack.aws.accounts import get_aws_account_id
 from localstack.services.awslambda import lambda_api, lambda_executors, lambda_utils
+from localstack.services.awslambda.lambda_api import get_lambda_policy_name
 from localstack.services.awslambda.lambda_executors import OutputLog
-from localstack.services.awslambda.lambda_utils import API_PATH_ROOT
-from localstack.utils.aws import aws_stack
+from localstack.services.awslambda.lambda_utils import (
+    API_PATH_ROOT,
+    get_awslambda_store,
+    get_awslambda_store_for_arn,
+)
+from localstack.utils.aws import arns, aws_stack
 from localstack.utils.aws.aws_models import LambdaFunction
 from localstack.utils.common import isoformat_milliseconds, mkdir, new_tmp_dir, save_file
 
@@ -68,7 +72,7 @@ class TestLambdaAPI(unittest.TestCase):
             result = json.loads(lambda_api.get_function("myFunction").get_data())
             self.assertEqual(
                 result["Configuration"]["FunctionArn"],
-                aws_stack.lambda_function_arn("myFunction"),
+                arns.lambda_function_arn("myFunction"),
             )
 
     def test_get_function_two_functions_with_similar_names_match_by_name(self):
@@ -78,11 +82,12 @@ class TestLambdaAPI(unittest.TestCase):
             result = json.loads(lambda_api.get_function("myFunction").get_data())
             self.assertEqual(
                 result["Configuration"]["FunctionArn"],
-                aws_stack.lambda_function_arn("myFunction"),
+                arns.lambda_function_arn("myFunction"),
             )
             result = json.loads(lambda_api.get_function("myFunctions").get_data())
             self.assertEqual(
-                result["Configuration"]["FunctionArn"], aws_stack.lambda_function_arn("myFunctions")
+                result["Configuration"]["FunctionArn"],
+                arns.lambda_function_arn("myFunctions"),
             )
 
     def test_get_function_two_functions_with_similar_names_match_by_arn(self):
@@ -90,16 +95,18 @@ class TestLambdaAPI(unittest.TestCase):
             self._create_function("myFunctions")
             self._create_function("myFunction")
             result = json.loads(
-                lambda_api.get_function(aws_stack.lambda_function_arn("myFunction")).get_data()
+                lambda_api.get_function(arns.lambda_function_arn("myFunction")).get_data()
             )
             self.assertEqual(
-                result["Configuration"]["FunctionArn"], aws_stack.lambda_function_arn("myFunction")
+                result["Configuration"]["FunctionArn"],
+                arns.lambda_function_arn("myFunction"),
             )
             result = json.loads(
-                lambda_api.get_function(aws_stack.lambda_function_arn("myFunctions")).get_data()
+                lambda_api.get_function(arns.lambda_function_arn("myFunctions")).get_data()
             )
             self.assertEqual(
-                result["Configuration"]["FunctionArn"], aws_stack.lambda_function_arn("myFunctions")
+                result["Configuration"]["FunctionArn"],
+                arns.lambda_function_arn("myFunctions"),
             )
 
     def test_get_function_two_functions_with_similar_names_match_by_partial_arn(self):
@@ -112,7 +119,8 @@ class TestLambdaAPI(unittest.TestCase):
                 ).get_data()
             )
             self.assertEqual(
-                result["Configuration"]["FunctionArn"], aws_stack.lambda_function_arn("myFunction")
+                result["Configuration"]["FunctionArn"],
+                arns.lambda_function_arn("myFunction"),
             )
             result = json.loads(
                 lambda_api.get_function(
@@ -120,18 +128,19 @@ class TestLambdaAPI(unittest.TestCase):
                 ).get_data()
             )
             self.assertEqual(
-                result["Configuration"]["FunctionArn"], aws_stack.lambda_function_arn("myFunctions")
+                result["Configuration"]["FunctionArn"],
+                arns.lambda_function_arn("myFunctions"),
             )
 
     def test_get_event_source_mapping(self):
-        region = lambda_api.LambdaRegion.get()
+        region = get_awslambda_store()
         with self.app.test_request_context():
             region.event_source_mappings.append({"UUID": self.TEST_UUID})
             result = lambda_api.get_event_source_mapping(self.TEST_UUID)
             self.assertEqual(self.TEST_UUID, json.loads(result.get_data()).get("UUID"))
 
     def test_get_event_sources(self):
-        region = lambda_api.LambdaRegion.get()
+        region = get_awslambda_store()
         with self.app.test_request_context():
             region.event_source_mappings.append(
                 {"UUID": self.TEST_UUID, "EventSourceArn": "the_arn"}
@@ -147,7 +156,7 @@ class TestLambdaAPI(unittest.TestCase):
             self.assertEqual(0, len(result))
 
     def test_get_event_sources_with_paths(self):
-        region = lambda_api.LambdaRegion.get()
+        region = get_awslambda_store()
         with self.app.test_request_context():
             region.event_source_mappings.append(
                 {"UUID": self.TEST_UUID, "EventSourceArn": "the_arn/path/subpath"}
@@ -160,7 +169,7 @@ class TestLambdaAPI(unittest.TestCase):
             self.assertEqual(1, len(result))
 
     def test_delete_event_source_mapping(self):
-        region = lambda_api.LambdaRegion.get()
+        region = get_awslambda_store()
         with self.app.test_request_context():
             region.event_source_mappings.append({"UUID": self.TEST_UUID})
             result = lambda_api.delete_event_source_mapping(self.TEST_UUID)
@@ -342,7 +351,7 @@ class TestLambdaAPI(unittest.TestCase):
 
     def test_create_disabled_event_source_mapping(self):
         createResponse = self.client.post(
-            "{0}/event-source-mappings/".format(API_PATH_ROOT),
+            f"{API_PATH_ROOT}/event-source-mappings/",
             data=json.dumps(
                 {
                     "FunctionName": "test-lambda-function",
@@ -762,7 +771,7 @@ class TestLambdaAPI(unittest.TestCase):
 
     def test_get_container_name(self):
         executor = lambda_executors.EXECUTOR_CONTAINERS_REUSE
-        name = executor.get_container_name(aws_stack.lambda_function_arn("my_function_name"))
+        name = executor.get_container_name(arns.lambda_function_arn("my_function_name"))
         self.assertIn(
             f"_lambda_arn_aws_lambda_{aws_stack.get_region()}_{get_aws_account_id()}_function_my_function_name",
             name,
@@ -970,7 +979,7 @@ class TestLambdaAPI(unittest.TestCase):
     def test_get_java_lib_folder_classpath(self):
         jar_file = os.path.join(new_tmp_dir(), "foo.jar")
         save_file(jar_file, "")
-        classpath = lambda_executors.Util.get_java_classpath(jar_file)
+        classpath = lambda_executors.Util.get_java_classpath(os.path.dirname(jar_file))
         self.assertIn(".:foo.jar", classpath)
         self.assertIn("*.jar", classpath)
 
@@ -981,13 +990,13 @@ class TestLambdaAPI(unittest.TestCase):
         lib_file = os.path.join(base_dir, "lib", "lib.jar")
         mkdir(os.path.dirname(lib_file))
         save_file(lib_file, "")
-        classpath = lambda_executors.Util.get_java_classpath(jar_file)
+        classpath = lambda_executors.Util.get_java_classpath(os.path.dirname(jar_file))
         self.assertIn(":foo.jar", classpath)
         self.assertIn("lib/lib.jar:", classpath)
         self.assertIn(":*.jar", classpath)
 
     def test_get_java_lib_folder_classpath_archive_is_None(self):
-        self.assertRaises(TypeError, lambda_executors.Util.get_java_classpath, None)
+        self.assertRaises(ValueError, lambda_executors.Util.get_java_classpath, None)
 
     @mock.patch("localstack.utils.cloudwatch.cloudwatch_util.store_cloudwatch_logs")
     def test_executor_store_logs_can_handle_milliseconds(self, mock_store_cloudwatch_logs):
@@ -1008,7 +1017,7 @@ class TestLambdaAPI(unittest.TestCase):
     def _create_function(self, function_name, tags=None):
         if tags is None:
             tags = {}
-        region = lambda_api.LambdaRegion.get()
+        region = get_awslambda_store()
         arn = lambda_api.func_arn(function_name)
         region.lambdas[arn] = LambdaFunction(arn)
         region.lambdas[arn].versions = {
@@ -1026,11 +1035,12 @@ class TestLambdaAPI(unittest.TestCase):
         region.lambdas[arn].last_modified = self.LAST_MODIFIED
         region.lambdas[arn].role = self.ROLE
         region.lambdas[arn].memory_size = self.MEMORY_SIZE
+        region.lambdas[arn].state = "Active"
 
     def _update_function_code(self, function_name, tags=None):
         if tags is None:
             tags = {}
-        region = lambda_api.LambdaRegion.get()
+        region = get_awslambda_store()
         arn = lambda_api.func_arn(function_name)
         region.lambdas[arn].versions.update(
             {
@@ -1130,3 +1140,33 @@ class TestLambdaEventInvokeConfig(unittest.TestCase):
         self.assertEqual(self.RETRY_ATTEMPTS, response["MaximumRetryAttempts"])
         self.assertEqual(self.EVENT_AGE, response["MaximumEventAgeInSeconds"])
         self.assertEqual(self.DL_QUEUE, response["DestinationConfig"]["OnFailure"]["Destination"])
+
+
+class TestLambdaStore:
+    def test_get_awslambda_store_for_arn(self):
+        default_region = aws_stack.get_region()
+
+        def _lookup(resource_id, region):
+            store = get_awslambda_store_for_arn(resource_id)
+            assert store
+            assert store._region_name == region
+
+        _lookup("my-func", default_region)
+        _lookup("my-layer", default_region)
+        _lookup("", default_region)
+        _lookup(None, default_region)
+
+        for region in ["us-east-1", "us-east-1", "eu-central-1"]:
+            # check lookup for function ARNs
+            _lookup(arns.lambda_function_arn("myfunc", region_name=region), region)
+            # check lookup for layer ARNs
+            _lookup(arns.lambda_layer_arn("mylayer", region_name=region), region)
+
+
+class TestLambdaUtils:
+    def test_lambda_policy_name(self):
+        func_name = "lambda1"
+        policy_name1 = get_lambda_policy_name(func_name)
+        policy_name2 = get_lambda_policy_name(lambda_api.func_arn(func_name))
+        assert func_name in policy_name1
+        assert policy_name1 == policy_name2

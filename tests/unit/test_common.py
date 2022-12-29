@@ -6,10 +6,10 @@ import socket
 import threading
 import time
 import zipfile
-from datetime import date, datetime
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
-import pytz
 import yaml
 
 from localstack import config
@@ -76,7 +76,7 @@ class TestCommon:
 
     def test_now_utc(self):
         env = common.now_utc()
-        test = datetime.now(pytz.UTC).timestamp()
+        test = datetime.now(timezone.utc).timestamp()
         assert test == pytest.approx(env, 1)
 
     def test_is_number(self):
@@ -95,18 +95,18 @@ class TestCommon:
 
     def test_mktime_with_tz(self):
         # see https://en.wikipedia.org/wiki/File:1000000000seconds.jpg
-        dt = datetime(2001, 9, 9, 1, 46, 40, 0, tzinfo=pytz.utc)
+        dt = datetime(2001, 9, 9, 1, 46, 40, 0, tzinfo=timezone.utc)
         assert int(common.mktime(dt)) == 1000000000
 
-        dt = datetime(2001, 9, 9, 1, 46, 40, 0, tzinfo=pytz.timezone("EST"))
+        dt = datetime(2001, 9, 9, 1, 46, 40, 0, tzinfo=ZoneInfo("EST"))
         assert int(common.mktime(dt)) == 1000000000 + (5 * 60 * 60)  # EST is UTC-5
 
     def test_mktime_millis_with_tz(self):
         # see https://en.wikipedia.org/wiki/File:1000000000
-        dt = datetime(2001, 9, 9, 1, 46, 40, 0, tzinfo=pytz.utc)
+        dt = datetime(2001, 9, 9, 1, 46, 40, 0, tzinfo=timezone.utc)
         assert int(common.mktime(dt, millis=True) / 1000) == 1000000000
 
-        dt = datetime(2001, 9, 9, 1, 46, 40, 0, tzinfo=pytz.timezone("EST"))
+        dt = datetime(2001, 9, 9, 1, 46, 40, 0, tzinfo=ZoneInfo("EST"))
         assert int(common.mktime(dt, millis=True)) / 1000 == 1000000000 + (
             5 * 60 * 60
         )  # EST is UTC-5
@@ -621,6 +621,24 @@ class TestExternalServicePortsManager:
         external_service_ports_manager.reserve_port(config.EXTERNAL_SERVICE_PORTS_START)
         with pytest.raises(PortNotAvailableException):
             external_service_ports_manager.reserve_port(config.EXTERNAL_SERVICE_PORTS_START)
+
+    def test_reserve_custom_expiry(
+        self, external_service_ports_manager: ExternalServicePortsManager
+    ):
+        external_service_ports_manager.reserve_port(config.EXTERNAL_SERVICE_PORTS_START, duration=1)
+        with pytest.raises(PortNotAvailableException):
+            external_service_ports_manager.reserve_port(config.EXTERNAL_SERVICE_PORTS_START)
+        time.sleep(1)
+        external_service_ports_manager.reserve_port(config.EXTERNAL_SERVICE_PORTS_START)
+
+    def test_check_is_port_reserved(
+        self, external_service_ports_manager: ExternalServicePortsManager
+    ):
+        assert not external_service_ports_manager.is_port_reserved(
+            config.EXTERNAL_SERVICE_PORTS_START
+        )
+        external_service_ports_manager.reserve_port(config.EXTERNAL_SERVICE_PORTS_START)
+        assert external_service_ports_manager.is_port_reserved(config.EXTERNAL_SERVICE_PORTS_START)
 
 
 @pytest.fixture()

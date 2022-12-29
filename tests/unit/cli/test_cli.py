@@ -74,7 +74,9 @@ def test_status_services(runner, httpserver, monkeypatch):
     monkeypatch.setattr(config, "EDGE_PORT", httpserver.port)
 
     services = {"dynamodb": "starting", "s3": "running"}
-    httpserver.expect_request("/health", method="GET").respond_with_json({"services": services})
+    httpserver.expect_request("/_localstack/health", method="GET").respond_with_json(
+        {"services": services}
+    )
 
     result = runner.invoke(cli, ["status", "services"])
 
@@ -195,10 +197,8 @@ def test_config_show_dict(runner, monkeypatch):
     "cli_input,expected_cmd,expected_params",
     [
         ("stop", "localstack stop", []),
-        ("status docker", "localstack status docker", ["format"]),
-        ("status", "localstack status docker", ["format"]),
-        ("--debug status docker --format json", "localstack status docker", ["format"]),
-        ("config show --format plain", "localstack config show", ["format"]),
+        ("config show", "localstack config show", ["format"]),
+        ("--debug config show --format plain", "localstack config show", ["format"]),
     ],
 )
 def test_publish_analytics_event_on_command_invocation(
@@ -236,7 +236,7 @@ def test_publish_analytics_event_on_command_invocation(
     "cli_input",
     [
         "invalid",
-        "status invalid",
+        "status services",
         "config show --format invalid",
     ],
 )
@@ -272,7 +272,7 @@ def test_disable_publish_analytics_event_on_command_invocation(runner, monkeypat
 
     with testutil.http_server(handler) as url:
         monkeypatch.setenv("ANALYTICS_API", url)
-        runner.invoke(cli, "status")
+        runner.invoke(cli, ["config", "show"])
         assert (
             len(request_data) == 0
         ), "analytics API should not be invoked when DISABLE_EVENTS is set"
@@ -294,7 +294,7 @@ def test_timeout_publishing_command_invocation(runner, monkeypatch, caplog):
 
     with testutil.http_server(handler) as url:
         monkeypatch.setenv("ANALYTICS_API", url)
-        runner.invoke(cli, "status")
+        runner.invoke(cli, ["config", "show"])
         assert (
             len(request_data) == 0
         ), "analytics event publisher process should time out if request is taking too long"

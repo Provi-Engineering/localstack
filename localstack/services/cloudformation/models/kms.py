@@ -1,7 +1,7 @@
 import json
 
 from localstack.services.cloudformation.service_models import REF_ID_ATTRS, GenericBaseModel
-from localstack.utils.aws import aws_stack
+from localstack.utils.aws import arns, aws_stack
 from localstack.utils.common import short_uid
 
 
@@ -38,7 +38,7 @@ class KMSKey(GenericBaseModel):
     def get_physical_resource_id(self, attribute=None, **kwargs):
         if attribute in REF_ID_ATTRS:
             return self.physical_resource_id
-        return self.physical_resource_id and aws_stack.kms_key_arn(self.physical_resource_id)
+        return self.physical_resource_id and arns.kms_key_arn(self.physical_resource_id)
 
     # TODO: try to remove this workaround (ensures idempotency)
     @staticmethod
@@ -72,7 +72,6 @@ class KMSKey(GenericBaseModel):
 
             new_key = kms_client.create_key(**params)
             key_id = new_key["KeyMetadata"]["KeyId"]
-            resource.resource_json["PhysicalResourceId"] = key_id
 
             # key is created but some fields map to separate api calls
             if props.get("EnableKeyRotation", False):
@@ -85,9 +84,14 @@ class KMSKey(GenericBaseModel):
             else:
                 kms_client.disable_key(KeyId=key_id)
 
+            return new_key
+
+        def _handle_key_result(result, resource_id, resources, resource_type):
+            resources[resource_id]["PhysicalResourceId"] = result["KeyMetadata"]["KeyId"]
+
         return {
             "create": [
-                {"function": _create},
+                {"function": _create, "result_handler": _handle_key_result},
             ],
             "delete": {
                 # TODO Key needs to be deleted in KMS backend

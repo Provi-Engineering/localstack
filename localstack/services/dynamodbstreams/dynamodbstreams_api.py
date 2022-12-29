@@ -1,15 +1,16 @@
-import json
+import contextlib
 import logging
 import threading
 import time
 from typing import Dict
 
+from bson.json_util import dumps
+
+from localstack.aws.accounts import get_aws_account_id
 from localstack.aws.api.dynamodbstreams import StreamStatus, StreamViewType
-from localstack.services.generic_proxy import RegionBackend
-from localstack.utils.analytics import event_publisher
-from localstack.utils.aws import aws_stack
+from localstack.services.dynamodbstreams.models import DynamoDbStreamsStore, dynamodbstreams_stores
+from localstack.utils.aws import arns, aws_stack, resources
 from localstack.utils.common import now_utc
-from localstack.utils.json import BytesEncoder
 
 DDB_KINESIS_STREAM_NAME_PREFIX = "__ddb_stream_"
 
@@ -19,12 +20,10 @@ _SEQUENCE_MTX = threading.RLock()
 _SEQUENCE_NUMBER_COUNTER = 1
 
 
-class DynamoDBStreamsBackend(RegionBackend):
-    # maps table names to DynamoDB stream descriptions
-    ddb_streams: Dict[str, dict]
-
-    def __init__(self):
-        self.ddb_streams = {}
+def get_dynamodbstreams_store(account_id: str = None, region: str = None) -> DynamoDbStreamsStore:
+    return dynamodbstreams_stores[account_id or get_aws_account_id()][
+        region or aws_stack.get_region()
+    ]
 
 
 def get_and_increment_sequence_number_counter() -> int:
@@ -39,13 +38,13 @@ def add_dynamodb_stream(
     table_name, latest_stream_label=None, view_type=StreamViewType.NEW_AND_OLD_IMAGES, enabled=True
 ):
     if enabled:
-        region = DynamoDBStreamsBackend.get()
+        store = get_dynamodbstreams_store()
         # create kinesis stream as a backend
         stream_name = get_kinesis_stream_name(table_name)
-        aws_stack.create_kinesis_stream(stream_name)
+        resources.create_kinesis_stream(stream_name)
         latest_stream_label = latest_stream_label or "latest"
         stream = {
-            "StreamArn": aws_stack.dynamodb_stream_arn(
+            "StreamArn": arns.dynamodb_stream_arn(
                 table_name=table_name, latest_stream_label=latest_stream_label
             ),
             "TableName": table_name,
@@ -56,47 +55,38 @@ def add_dynamodb_stream(
             "StreamViewType": view_type,
             "shards_id_map": {},
         }
-        region.ddb_streams[table_name] = stream
-        # record event
-        event_publisher.fire_event(
-            event_publisher.EVENT_DYNAMODB_CREATE_STREAM,
-            payload={"n": event_publisher.get_hash(table_name)},
-        )
+        store.ddb_streams[table_name] = stream
 
 
 def get_stream_for_table(table_arn: str) -> dict:
-    region = DynamoDBStreamsBackend.get()
+    store = get_dynamodbstreams_store()
     table_name = table_name_from_stream_arn(table_arn)
-    return region.ddb_streams.get(table_name)
+    return store.ddb_streams.get(table_name)
 
 
 def forward_events(records: Dict) -> None:
     kinesis = aws_stack.connect_to_service("kinesis")
     for record in records:
         table_arn = record.pop("eventSourceARN", "")
-        stream = get_stream_for_table(table_arn)
-        if stream:
+        if stream := get_stream_for_table(table_arn):
             table_name = table_name_from_stream_arn(stream["StreamArn"])
             stream_name = get_kinesis_stream_name(table_name)
             kinesis.put_record(
                 StreamName=stream_name,
-                Data=json.dumps(record, cls=BytesEncoder),
+                Data=dumps(record),
                 PartitionKey="TODO",
             )
 
 
 def delete_streams(table_arn: str) -> None:
-    region = DynamoDBStreamsBackend.get()
+    store = get_dynamodbstreams_store()
     table_name = table_name_from_table_arn(table_arn)
-    stream = region.ddb_streams.pop(table_name, None)
-    if stream:
+    if store.ddb_streams.pop(table_name, None):
         stream_name = get_kinesis_stream_name(table_name)
-        try:
+        with contextlib.suppress(Exception):
             aws_stack.connect_to_service("kinesis").delete_stream(StreamName=stream_name)
             # sleep a bit, as stream deletion can take some time ...
             time.sleep(1)
-        except Exception:
-            pass  # ignore "stream not found" errors
 
 
 def get_kinesis_stream_name(table_name: str) -> str:

@@ -3,16 +3,15 @@ import re
 
 from botocore.exceptions import ClientError
 
-from localstack.constants import S3_VIRTUAL_HOSTNAME
+from localstack.constants import S3_STATIC_WEBSITE_HOSTNAME, S3_VIRTUAL_HOSTNAME
+from localstack.services.cloudformation.cfn_utils import rename_params
 from localstack.services.cloudformation.deployment_utils import (
-    PLACEHOLDER_RESOURCE_NAME,
     dump_json_params,
     generate_default_name,
 )
 from localstack.services.cloudformation.service_models import GenericBaseModel
 from localstack.services.s3 import s3_listener, s3_utils
-from localstack.utils.aws import aws_stack
-from localstack.utils.cloudformation.cfn_utils import rename_params
+from localstack.utils.aws import arns, aws_stack
 from localstack.utils.common import canonical_json, md5
 from localstack.utils.testutil import delete_all_s3_objects
 
@@ -27,7 +26,7 @@ class S3BucketPolicy(GenericBaseModel):
         return policy and md5(canonical_json(json.loads(policy)))
 
     def fetch_state(self, stack_name, resources):
-        bucket_name = self.props.get("Bucket") or self.resource_id
+        bucket_name = self.props.get("Bucket") or self.logical_resource_id
         bucket_name = self.resolve_refs_recursively(stack_name, bucket_name, resources)
         return aws_stack.connect_to_service("s3").get_bucket_policy(Bucket=bucket_name)
 
@@ -37,7 +36,8 @@ class S3BucketPolicy(GenericBaseModel):
             "create": {
                 "function": "put_bucket_policy",
                 "parameters": rename_params(
-                    dump_json_params(None, "PolicyDocument"), {"PolicyDocument": "Policy"}
+                    dump_json_params(None, "PolicyDocument"),
+                    {"PolicyDocument": "Policy", "Bucket": "Bucket"},
                 ),
             },
             "delete": {"function": "delete_bucket_policy", "parameters": {"Bucket": "Bucket"}},
@@ -48,9 +48,6 @@ class S3Bucket(GenericBaseModel):
     @staticmethod
     def cloudformation_type():
         return "AWS::S3::Bucket"
-
-    def get_resource_name(self):
-        return self.normalize_bucket_name(self.props.get("BucketName"))
 
     @staticmethod
     def normalize_bucket_name(bucket_name):
@@ -104,7 +101,7 @@ class S3Bucket(GenericBaseModel):
 
             # construct final result
             result = {
-                "Bucket": params.get("BucketName") or PLACEHOLDER_RESOURCE_NAME,
+                "Bucket": params.get("BucketName"),
                 "NotificationConfiguration": {
                     "LambdaFunctionConfigurations": lambda_configs,
                     "QueueConfigurations": queue_configs,
@@ -163,11 +160,15 @@ class S3Bucket(GenericBaseModel):
             except ClientError as e:
                 if e.response["Error"]["Message"] == "Not Found":
                     bucket_name = props.get("BucketName")
-                    s3_client.create_bucket(
-                        Bucket=bucket_name,
-                        ACL=convert_acl_cf_to_s3(props.get("AccessControl", "PublicRead")),
-                        CreateBucketConfiguration={"LocationConstraint": aws_stack.get_region()},
-                    )
+                    params = {
+                        "Bucket": bucket_name,
+                        "ACL": convert_acl_cf_to_s3(props.get("AccessControl", "PublicRead")),
+                    }
+                    if aws_stack.get_region() != "us-east-1":
+                        params["CreateBucketConfiguration"] = {
+                            "LocationConstraint": aws_stack.get_region()
+                        }
+                    s3_client.create_bucket(**params)
 
         result = {
             "create": [
@@ -210,7 +211,18 @@ class S3Bucket(GenericBaseModel):
         if attribute_name in ["DomainName", "RegionalDomainName"]:
             bucket_name = self._get_bucket_name()
             return "%s.%s" % (bucket_name, S3_VIRTUAL_HOSTNAME)
+
+        if attribute_name == "WebsiteURL":
+            bucket_name = self.props.get("BucketName")
+            return f"https://{bucket_name}.{S3_STATIC_WEBSITE_HOSTNAME}"
+
         return super(S3Bucket, self).get_cfn_attribute(attribute_name)
 
+    def get_physical_resource_id(self, attribute=None, **kwargs):
+        bucket_name = self.props.get("BucketName")
+        if attribute == "Arn":
+            return arns.s3_bucket_arn(bucket_name)
+        return bucket_name
+
     def _get_bucket_name(self):
-        return self.props.get("BucketName") or self.resource_id
+        return self.props.get("BucketName") or self.logical_resource_id

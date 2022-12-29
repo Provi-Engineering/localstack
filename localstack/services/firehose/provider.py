@@ -1,6 +1,8 @@
 import base64
 import json
 import logging
+import os
+import re
 import threading
 import time
 import uuid
@@ -9,6 +11,8 @@ from typing import Dict, List
 import re
 from functools import partial
 from collections import defaultdict
+from urllib.parse import urlparse
+
 import requests
 
 from localstack.aws.accounts import get_aws_account_id
@@ -78,15 +82,9 @@ from localstack.services.firehose.mappers import (
     convert_s3_update_to_desc,
     convert_source_config_to_desc,
 )
-from localstack.services.generic_proxy import RegionBackend
-from localstack.utils.analytics import event_publisher
+from localstack.services.firehose.models import FirehoseStore, firehose_stores
 from localstack.utils.aws import aws_stack
-from localstack.utils.aws.aws_stack import (
-    connect_to_resource,
-    firehose_stream_arn,
-    get_search_db_connection,
-    s3_bucket_name,
-)
+from localstack.utils.aws.arns import extract_region_from_arn, firehose_stream_arn, s3_bucket_name
 from localstack.utils.common import (
     TIMESTAMP_FORMAT_MICROS,
     first_char_to_lower,
@@ -99,7 +97,7 @@ from localstack.utils.common import (
     truncate,
 )
 from localstack.utils.kinesis import kinesis_connector
-from localstack.utils.tagging import TaggingService
+from localstack.utils.run import run_for_max_seconds
 
 LOG = logging.getLogger(__name__)
 
@@ -116,21 +114,11 @@ def next_sequence_number() -> int:
         return SEQUENCE_NUMBER
 
 
-class FirehoseBackend(RegionBackend):
-    # maps delivery stream names to DeliveryStreamDescription
-    delivery_streams: Dict[str, DeliveryStreamDescription]
-    # static tagging service instance
-    TAGS = TaggingService()
-
-    def __init__(self):
-        self.delivery_streams = {}
-
-
 def _get_description_or_raise_not_found(
     context, delivery_stream_name: str
 ) -> DeliveryStreamDescription:
-    region = FirehoseBackend.get()
-    delivery_stream_description = region.delivery_streams.get(delivery_stream_name)
+    store = FirehoseProvider.get_store()
+    delivery_stream_description = store.delivery_streams.get(delivery_stream_name)
     if not delivery_stream_description:
         raise ResourceNotFoundException(
             f"Firehose {delivery_stream_name} under account {context.account_id} " f"not found."
@@ -138,7 +126,69 @@ def _get_description_or_raise_not_found(
     return delivery_stream_description
 
 
+def get_opensearch_endpoint(domain_arn: str) -> str:
+    """
+    Get an OpenSearch cluster endpoint by describing the cluster associated with the domain_arn
+    :param domain_arn: ARN of the cluster.
+    :returns: cluster endpoint
+    :raises: ValueError if the domain_arn is malformed
+    """
+    region_name = extract_region_from_arn(domain_arn)
+    if region_name is None:
+        raise ValueError("unable to parse region from opensearch domain ARN")
+    opensearch_client = aws_stack.connect_to_service(
+        service_name="opensearch", region_name=region_name
+    )
+    domain_name = domain_arn.rpartition("/")[2]
+    info = opensearch_client.describe_domain(DomainName=domain_name)
+    base_domain = info["DomainStatus"]["Endpoint"]
+    # Add the URL scheme "http" if it's not set yet. https might not be enabled for all instances
+    # f.e. when the endpoint strategy is PORT or there is a custom opensearch/elasticsearch instance
+    endpoint = base_domain if base_domain.startswith("http") else f"http://{base_domain}"
+    return endpoint
+
+
+def get_search_db_connection(endpoint: str, region_name: str):
+    """
+    Get a connection to an ElasticSearch or OpenSearch DB
+    :param endpoint: cluster endpoint
+    :param region_name: cluster region e.g. us-east-1
+    """
+    from opensearchpy import OpenSearch, RequestsHttpConnection
+    from requests_aws4auth import AWS4Auth
+
+    verify_certs = False
+    use_ssl = False
+    # use ssl?
+    if "https://" in endpoint:
+        use_ssl = True
+        # TODO remove this condition once ssl certs are available for .es.localhost.localstack.cloud domains
+        endpoint_netloc = urlparse(endpoint).netloc
+        if not re.match(r"^.*(localhost(\.localstack\.cloud)?)(:\d+)?$", endpoint_netloc):
+            verify_certs = True
+
+    LOG.debug("Creating ES client with endpoint %s", endpoint)
+    if "AWS_ACCESS_KEY_ID" in os.environ and "AWS_SECRET_ACCESS_KEY" in os.environ:
+        access_key = os.environ.get("AWS_ACCESS_KEY_ID")
+        secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+        session_token = os.environ.get("AWS_SESSION_TOKEN")
+        awsauth = AWS4Auth(access_key, secret_key, region_name, "es", session_token=session_token)
+        connection_class = RequestsHttpConnection
+        return OpenSearch(
+            hosts=[endpoint],
+            verify_certs=verify_certs,
+            use_ssl=use_ssl,
+            connection_class=connection_class,
+            http_auth=awsauth,
+        )
+    return OpenSearch(hosts=[endpoint], verify_certs=verify_certs, use_ssl=use_ssl)
+
+
 class FirehoseProvider(FirehoseApi):
+    @staticmethod
+    def get_store() -> FirehoseStore:
+        return firehose_stores[get_aws_account_id()][aws_stack.get_region()]
+
     def create_delivery_stream(
         self,
         context: RequestContext,
@@ -155,7 +205,7 @@ class FirehoseProvider(FirehoseApi):
         http_endpoint_destination_configuration: HttpEndpointDestinationConfiguration = None,
         tags: TagDeliveryStreamInputTagList = None,
     ) -> CreateDeliveryStreamOutput:
-        region = FirehoseBackend.get()
+        store = self.get_store()
 
         destinations: DestinationDescriptionList = []
         if elasticsearch_destination_configuration:
@@ -218,32 +268,37 @@ class FirehoseProvider(FirehoseApi):
             HasMoreDestinations=False,
             VersionId="1",
             CreateTimestamp=datetime.now(),
-            LastUpdateTimestamp=datetime.now(),
             Destinations=destinations,
             Source=convert_source_config_to_desc(kinesis_stream_source_configuration),
         )
-        FirehoseBackend.TAGS.tag_resource(stream["DeliveryStreamARN"], tags)
-        region.delivery_streams[delivery_stream_name] = stream
-
-        # record event
-        event_publisher.fire_event(
-            event_publisher.EVENT_FIREHOSE_CREATE_STREAM,
-            payload={"n": event_publisher.get_hash(delivery_stream_name)},
-        )
+        store.TAGS.tag_resource(stream["DeliveryStreamARN"], tags)
+        store.delivery_streams[delivery_stream_name] = stream
 
         if delivery_stream_type == DeliveryStreamType.KinesisStreamAsSource:
             if not kinesis_stream_source_configuration:
                 raise InvalidArgumentException("Missing delivery stream configuration")
-            kinesis_stream_name = kinesis_stream_source_configuration["KinesisStreamARN"].split(
-                "/"
-            )[1]
-            kinesis_connector.listen_to_kinesis(
-                stream_name=kinesis_stream_name,
-                fh_d_stream=delivery_stream_name,
-                listener_func=self._process_records,
-                wait_until_started=True,
-                ddb_lease_table_suffix="-firehose",
-            )
+            kinesis_stream_arn = kinesis_stream_source_configuration["KinesisStreamARN"]
+            kinesis_stream_name = kinesis_stream_arn.split(":stream/")[1]
+
+            def _startup():
+                stream["DeliveryStreamStatus"] = DeliveryStreamStatus.CREATING
+                try:
+                    process = kinesis_connector.listen_to_kinesis(
+                        stream_name=kinesis_stream_name,
+                        fh_d_stream=delivery_stream_name,
+                        listener_func=self._process_records,
+                        wait_until_started=True,
+                        ddb_lease_table_suffix="-firehose",
+                    )
+                    store.kinesis_listeners[delivery_stream_name] = process
+                    stream["DeliveryStreamStatus"] = DeliveryStreamStatus.ACTIVE
+                except Exception as e:
+                    LOG.warning(
+                        "Unable to create Firehose delivery stream %s: %s", delivery_stream_name, e
+                    )
+                    stream["DeliveryStreamStatus"] = DeliveryStreamStatus.CREATING_FAILED
+
+            run_for_max_seconds(25, _startup)
         return CreateDeliveryStreamOutput(DeliveryStreamARN=stream["DeliveryStreamARN"])
 
     def delete_delivery_stream(
@@ -252,18 +307,16 @@ class FirehoseProvider(FirehoseApi):
         delivery_stream_name: DeliveryStreamName,
         allow_force_delete: BooleanObject = None,
     ) -> DeleteDeliveryStreamOutput:
-        region = FirehoseBackend.get()
-        delivery_stream_description = region.delivery_streams.pop(delivery_stream_name, {})
+        store = self.get_store()
+        delivery_stream_description = store.delivery_streams.pop(delivery_stream_name, {})
         if not delivery_stream_description:
             raise ResourceNotFoundException(
                 f"Firehose {delivery_stream_name} under account {context.account_id} " f"not found."
             )
-
-        # record event
-        event_publisher.fire_event(
-            event_publisher.EVENT_FIREHOSE_DELETE_STREAM,
-            payload={"n": event_publisher.get_hash(delivery_stream_name)},
-        )
+        kinesis_process = store.kinesis_listeners.pop(delivery_stream_name, None)
+        if kinesis_process:
+            LOG.debug("Stopping kinesis listener for %s", delivery_stream_name)
+            kinesis_process.stop()
 
         return DeleteDeliveryStreamOutput()
 
@@ -286,9 +339,9 @@ class FirehoseProvider(FirehoseApi):
         delivery_stream_type: DeliveryStreamType = None,
         exclusive_start_delivery_stream_name: DeliveryStreamName = None,
     ) -> ListDeliveryStreamsOutput:
-        region = FirehoseBackend.get()
+        store = self.get_store()
         delivery_stream_names = []
-        for name, stream in region.delivery_streams.items():
+        for name, stream in store.delivery_streams.items():
             delivery_stream_names.append(stream["DeliveryStreamName"])
         return ListDeliveryStreamsOutput(
             DeliveryStreamNames=delivery_stream_names, HasMoreDeliveryStreams=False
@@ -320,10 +373,11 @@ class FirehoseProvider(FirehoseApi):
         delivery_stream_name: DeliveryStreamName,
         tags: TagDeliveryStreamInputTagList,
     ) -> TagDeliveryStreamOutput:
+        store = self.get_store()
         delivery_stream_description = _get_description_or_raise_not_found(
             context, delivery_stream_name
         )
-        FirehoseBackend.TAGS.tag_resource(delivery_stream_description["DeliveryStreamARN"], tags)
+        store.TAGS.tag_resource(delivery_stream_description["DeliveryStreamARN"], tags)
         return ListTagsForDeliveryStreamOutput()
 
     def list_tags_for_delivery_stream(
@@ -333,11 +387,12 @@ class FirehoseProvider(FirehoseApi):
         exclusive_start_tag_key: TagKey = None,
         limit: ListTagsForDeliveryStreamInputLimit = None,
     ) -> ListTagsForDeliveryStreamOutput:
+        store = self.get_store()
         delivery_stream_description = _get_description_or_raise_not_found(
             context, delivery_stream_name
         )
         # The tagging service returns a dictionary with the given root name
-        tags = FirehoseBackend.TAGS.list_tags_for_resource(
+        tags = store.TAGS.list_tags_for_resource(
             arn=delivery_stream_description["DeliveryStreamARN"], root_name="root"
         )
         # Extract the actual list of tags for the typed response
@@ -350,11 +405,12 @@ class FirehoseProvider(FirehoseApi):
         delivery_stream_name: DeliveryStreamName,
         tag_keys: TagKeyList,
     ) -> UntagDeliveryStreamOutput:
+        store = self.get_store()
         delivery_stream_description = _get_description_or_raise_not_found(
             context, delivery_stream_name
         )
         # The tagging service returns a dictionary with the given root name
-        FirehoseBackend.TAGS.untag_resource(
+        store.TAGS.untag_resource(
             arn=delivery_stream_description["DeliveryStreamARN"], tag_names=tag_keys
         )
         return UntagDeliveryStreamOutput()
@@ -436,8 +492,8 @@ class FirehoseProvider(FirehoseApi):
     ) -> List[PutRecordBatchResponseEntry]:
         """Put a list of records to the firehose stream - either directly from a PutRecord API call, or
         received from an underlying Kinesis stream (if 'KinesisStreamAsSource' is configured)"""
-        region = FirehoseBackend.get()
-        delivery_stream_description = region.delivery_streams.get(delivery_stream_name)
+        store = self.get_store()
+        delivery_stream_description = store.delivery_streams.get(delivery_stream_name)
         if not delivery_stream_description:
             raise ResourceNotFoundException(
                 f"Firehose {delivery_stream_name} under account {get_aws_account_id()} not found."
@@ -518,7 +574,7 @@ class FirehoseProvider(FirehoseApi):
         domain_arn = db_description.get("DomainARN")
         cluster_endpoint = db_description.get("ClusterEndpoint")
         if cluster_endpoint is None:
-            cluster_endpoint = aws_stack.get_opensearch_endpoint(domain_arn)
+            cluster_endpoint = get_opensearch_endpoint(domain_arn)
 
         db_connection = get_search_db_connection(cluster_endpoint, region)
         if db_description.get("S3BackupMode") == ElasticsearchS3BackupMode.AllDocuments:
@@ -611,7 +667,6 @@ class FirehoseProvider(FirehoseApi):
         if proc_type == "Lambda":
             lambda_arn = parameters.get("LambdaArn")
             # TODO: add support for other parameters, e.g., NumberOfRetries, BufferSizeInMBs, BufferIntervalInSeconds, ...
-            client = aws_stack.connect_to_service("lambda")
             records = keys_to_lower(records)
             # Convert the record data to string (for json serialization)
             for record in records:
@@ -621,6 +676,9 @@ class FirehoseProvider(FirehoseApi):
                     record["Data"] = to_str(record["Data"])
             event = {"records": records}
             event = to_bytes(json.dumps(event))
+            client = aws_stack.connect_to_service(
+                "lambda", region_name=extract_region_from_arn(lambda_arn)
+            )
             response = client.invoke(FunctionName=lambda_arn, Payload=event)
             result = response.get("Payload").read()
             result = json.loads(to_str(result))
@@ -663,10 +721,10 @@ class FirehoseProvider(FirehoseApi):
             batched_records[prefix].append(r)
 
         
-        s3 = connect_to_resource("s3")
+        s3 = aws_stack.connect_to_resource("s3")
         for prefix in batched_records:
             obj_path = self._get_s3_object_path(stream_name, prefix)
-            batched_data = b"".join([base64.b64decode(r.get("Data") or r.get("data")) for r in batched_records[prefix]])
+            batched_data = b"\n".join([base64.b64decode(r.get("Data") or r.get("data")) for r in batched_records[prefix]])
             
             try:
                 LOG.debug("Publishing to S3 destination: %s. Data: %s", bucket, batched_data)
@@ -674,7 +732,6 @@ class FirehoseProvider(FirehoseApi):
             except Exception as e:
                 LOG.exception(f"Unable to put record {batched_data} to s3 bucket.")
                 raise e
-
 
     def _get_s3_object_path(self, stream_name, prefix):
         # See https://aws.amazon.com/kinesis/data-firehose/faqs/#Data_delivery
