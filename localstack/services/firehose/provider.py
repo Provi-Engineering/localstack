@@ -675,7 +675,7 @@ class FirehoseProvider(FirehoseApi):
         s3 = connect_to_resource("s3")
         for prefix in batched_records:
             obj_path = self._get_s3_object_path(stream_name, prefix)
-            batched_data = b"".join([base64.b64decode(r.get("Data") or r.get("data")) for r in batched_records[prefix]])
+            batched_data = b"\n".join([base64.b64decode(r.get("Data") or r.get("data")) for r in batched_records[prefix]])
             
             try:
                 LOG.debug("Publishing to S3 destination: %s. Data: %s", bucket, batched_data)
