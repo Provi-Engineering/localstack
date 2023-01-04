@@ -113,8 +113,8 @@ docker-provi-deploy:
 	make DOCKER_BUILD_FLAGS="--push" TAG=$(PROVI_IMAGE_NAME) docker-build
 
 docker-create-manifest:
-	docker manifest create ${REPOSITORY}:latest \
-		${REPOSITORY}:${GIT_SHA}-arm64 \
+	docker manifest create --amend ${REPOSITORY}:latest \
+		${REPOSITORY}:${GIT_SHA}-arm64 && \
 		${REPOSITORY}:${GIT_SHA}-i386 && \
 	docker manifest push ${REPOSITORY}:latest
 
